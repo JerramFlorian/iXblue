@@ -9,18 +9,26 @@ def f(x, u):
                       [u[2, 0]]])
     return x_dot
 
-def Kalman(xbar, P, u, y, Pa, Pb, A, B, C): #ajouter ytilde, l'innovation
-    ytilde = y - C @ xbar
+def Kalman(xbar, P, u, y, Q, R, F, G, H): #ajouter ytilde, l'innovation
+    ytilde = y - H @ xbar
     print(ytilde)
-    Γy = C @ P @ C.T + Pb
-    # print('Gy : ', Γy)
-    # print('P : ', P)
-    K = P @ C.T @ np.linalg.inv(Γy)
-    xup = xbar + K @ ytilde
-    Γup = P - K @ C @ P
-    Xhat = A @ xup + B @ u
-    Γ1 = A @ Γup @ A.T + Pa
-    return Xhat, Γ1
+    Γy = H @ P @ H.T + R
+    K = P @ H.T @ np.linalg.inv(Γy)
+    Xhat = xbar + K @ ytilde
+    P = P - K @ H @ P
+    Xhat = F @ Xhat + G @ u
+    P = F @ P @ F.T + Q
+    return Xhat, P, ytilde
+
+# def Kalman(xbar, P, u, y, Q, R, F, G, H):
+    S = H @ P @ H.T + R
+    K = P @ H.T @ np.linalg.inv(S)
+    ytilde = y - H @ xbar
+    Xhat = F @ xbar + G @ u
+    P = F @ P @ F.T + Q
+    Xhat = Xhat + K @ ytilde
+    P = P - K @ H @ P
+    return Xhat, P, ytilde
 
 def draw_ellipse(c, Γ, η, theta, ax, col):
     if norm(Γ) == 0:
@@ -57,12 +65,12 @@ X = np.array([[10], [10], [0], [0], [0]])
 Xhat = X
 u = np.array([[1], [0.5], [0]])
 
-sigm = 0.000001
-Pa = np.diag([sigm, sigm, sigm, sigm, sigm])
-Pb = np.diag([10])
+sigm = 0.0001
+Q = np.diag([sigm, sigm, sigm, sigm, sigm])
+R = np.diag([sigm])
 
 
-for i in np.arange(0, 300*dt, dt):
+for i in np.arange(0, 60*dt, dt):
     clear(ax)
     legende(ax)
     draw_tank(X)
@@ -70,23 +78,30 @@ for i in np.arange(0, 300*dt, dt):
     Hk = np.array([[1, 0, 0, 0, 0],
                    [0, 1, 0, 0, 0]])
 
-    Fk = np.eye(5) + dt * np.array([[0, 0, 0, np.cos(X[2, 0]), np.sin(X[2, 0])],
-                                    [0, 0, 0, np.sin(X[2, 0]), -np.cos(X[2, 0])],
-                                    [0, 0, 0, 0, 0],
-                                    [0, 0, 0, 0, 0],
-                                    [0, 0, 0, 0, 0]])
+    Fk = np.eye(5)
+    # Fk = np.eye(5) + dt * np.array([[0, 0, 0, np.cos(X[2, 0]), np.sin(X[2, 0])],
+    #                                 [0, 0, 0, np.sin(X[2, 0]), -np.cos(X[2, 0])],
+    #                                 [0, 0, 0, 0, 0],
+    #                                 [0, 0, 0, 0, 0],
+    #                                 [0, 0, 0, 0, 0]])
 
     Gk = dt * np.array([[0, 0, 0],
                         [0, 0, 0],
                         [1, 0, 0],
-                        [0, 1, 0],
-                        [0, 0, 1]]) #inverser la matrice entre F et G
+                        [0, np.cos(X[2, 0]), np.sin(X[2, 0])],
+                        [0, np.sin(X[2, 0]), -np.cos(X[2, 0])]])
+    # Gk = dt * np.array([[0, 0, 0],
+    #                     [0, 0, 0],
+    #                     [1, 0, 0],
+    #                     [0, 1, 0],
+    #                     [0, 0, 1]]) 
+
 
     # Sans bruits
     y = np.array([[X[0, 0]], [X[1, 0]]])
-    Xhat, P = Kalman(Xhat, P, u, y, Pa, Pb, Fk, Gk, Hk)
+    Xhat, P, _ = Kalman(Xhat, P, u, y, Q, R, Fk, Gk, Hk)
     
-    draw_ellipse(Xhat[0:2], 10000*P[0:2, 0:2], 0.9, Xhat[2,0], ax, col='black')
+    # draw_ellipse(Xhat[0:2], 10000*P[0:2, 0:2], 0.9, Xhat[2,0], ax, col='black')
     plt.scatter(Xhat[0, 0], Xhat[1, 0], color='red', label = 'Estimation of position', s = 5)
 
     plt.legend()
