@@ -87,7 +87,9 @@ def draw_ellipse_cov(ax,c,Γ,η, α=0, col ='blue',coledge='black'): # Gaussian 
     a=np.sqrt(-2*log(1-η))
     draw_ellipse0(ax, c, Γ, a, α,col,coledge)
 
-def legende(ax):
+def axes(ax):
+    # ax.set_xlim(X[0,0]-60, X[0,0]+60)
+    # ax.set_ylim(X[1,0]-60, X[1,0]+60)
     ax.set_title('Filtre de Kalman')
     ax.set_xlabel('x')
     ax.set_ylabel('y')
@@ -103,18 +105,17 @@ u = np.array([[0.3], [0.3], [0]])
 
 sigm = 0.0001
 Q = np.diag([sigm, sigm, sigm, sigm, sigm])
-R = np.diag([sigm])
+R = np.diag([sigm, sigm])
 
 
-for i in np.arange(0, 100*dt, dt):
+for i in np.arange(0, 130*dt, dt):
     clear(ax)
-    legende(ax)
+    axes(ax)
     draw_tank(X)
 
     Hk = np.array([[1, 0, 0, 0, 0],
                    [0, 1, 0, 0, 0]])
 
-    # Fk = np.eye(5)
     Fk = np.eye(5) + dt * np.array([[0, 0, 0, 1, 0],
                                     [0, 0, 0, 0, 1],
                                     [0, 0, 0, 0, 0],
@@ -129,12 +130,13 @@ for i in np.arange(0, 100*dt, dt):
 
     # Sans bruits
     y = np.array([[X[0, 0]], [X[1, 0]]])
-    Xhat, P, ytilde = Kalman(Xhat, P, u, y, Q, R, Fk, Gk, Hk)
+    # Xhat, P, ytilde = Kalman(Xhat, P, u, y, Q, R, Fk, Gk, Hk)
     # if 20*dt<i<40*dt or 80*dt<i<99*dt:
-    #     Xhat, P = Kalman_without_mesure(Xhat, P, u, Q, Fk, Gk)
-    #     print("---------------------")
-    # else:
-    #     Xhat, P, ytilde = Kalman(Xhat, P, u, y, Q, R, Fk, Gk, Hk)
+    if 60*dt<i<90*dt:
+        Xhat, P = Kalman_without_mesure(Xhat, P, u, Q, Fk, Gk)
+        print("---------------------")
+    else:
+        Xhat, P, ytilde = Kalman(Xhat, P, u, y, Q, R, Fk, Gk, Hk)
 
     # draw_ellipse_cov(ax, Xhat[0:2], 100000*P[0:2, 0:2], 0.9, Xhat[2,0], col='black')
     plt.scatter(Xhat[0, 0], Xhat[1, 0], color='red', label = 'Estimation of position', s = 5)
