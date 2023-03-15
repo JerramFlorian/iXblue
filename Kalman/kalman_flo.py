@@ -7,8 +7,10 @@ def f(x, u):
                       [u[0, 0]],
                     #   [u[1, 0]],
                     #   [u[2, 0]]])
-                      [u[1, 0]*np.cos(x[2,0]) - u[0,0]*x[3,0]*np.sin(x[2,0]) + u[2,0]*np.sin(x[2,0]) + u[0,0]*x[4,0]*np.cos(x[2,0])],
-                      [u[1, 0]*np.sin(x[2,0]) + u[0,0]*x[3,0]*np.cos(x[2,0]) - u[2,0]*np.cos(x[2,0]) + u[0,0]*x[4,0]*np.sin(x[2,0])]])
+                    #   [u[1, 0]*np.cos(x[2,0]) - u[0,0]*x[3,0]*np.sin(x[2,0]) + u[2,0]*np.sin(x[2,0]) + u[0,0]*x[4,0]*np.cos(x[2,0])],
+                    #   [u[1, 0]*np.sin(x[2,0]) + u[0,0]*x[3,0]*np.cos(x[2,0]) - u[2,0]*np.cos(x[2,0]) + u[0,0]*x[4,0]*np.sin(x[2,0])]])
+                    [u[1, 0]*np.cos(x[2, 0]) + u[2, 0]*np.sin(x[2, 0])],
+                    [u[1, 0]*np.sin(x[2, 0]) - u[2, 0]*np.cos(x[2, 0])]])
     return x_dot
 
 def Kalman(xbar, P, u, y, Q, R, F, G, H):
@@ -96,12 +98,12 @@ def axes(ax):
 
 
 dt = 0.1
-ax = init_figure(-60, 60, -60, 60)
+ax = init_figure(-40, 40, -40, 40)
 
 P = 0.01 * np.eye(5)
 X = np.array([[0], [0], [0], [0], [0]])
 Xhat = X
-u = np.array([[0.3], [0.3], [0]])
+u = np.array([[1], [3], [0]])
 
 sigm = 0.0001
 Q = np.diag([sigm, sigm, sigm, sigm, sigm])
@@ -127,12 +129,12 @@ for i in np.arange(0, 130*dt, dt):
                         [1, 0, 0],
                         [0, np.cos(X[2, 0]), np.sin(X[2, 0])],
                         [0, np.sin(X[2, 0]), -np.cos(X[2, 0])]])
-
+ 
     # Sans bruits
     y = np.array([[X[0, 0]], [X[1, 0]]])
     # Xhat, P, ytilde = Kalman(Xhat, P, u, y, Q, R, Fk, Gk, Hk)
     # if 20*dt<i<40*dt or 80*dt<i<99*dt:
-    if 60*dt<i<90*dt:
+    if 60*dt<i<100*dt:
         Xhat, P = Kalman_without_mesure(Xhat, P, u, Q, Fk, Gk)
         print("---------------------")
     else:
