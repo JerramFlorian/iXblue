@@ -5,8 +5,8 @@ def f(x, u):
     x_dot = np.array([[x[3, 0]],
                       [x[4, 0]],
                       [u[0, 0]],
-                      [u[1, 0]],
-                      [u[2, 0]]])
+                      [u[1, 0]*np.cos(x[2,0]) - u[0,0]*x[3,0]*np.sin(x[2,0]) + u[2,0]*np.sin(x[2,0]) + u[0,0]*x[4,0]*np.cos(x[2,0])],
+                      [u[1, 0]*np.sin(x[2,0]) + u[0,0]*x[3,0]*np.cos(x[2,0]) - u[2,0]*np.cos(x[2,0]) + u[0,0]*x[4,0]*np.sin(x[2,0])]])
     return x_dot
 
 
@@ -76,9 +76,10 @@ def legende(ax):
     ax.set_xlabel('x')
     ax.set_ylabel('y')
 
-
 dt = 0.1
 ax = init_figure(-60, 60, -60, 60)
+T = []
+P11, P22, P33, P44, P55 = [], [], [], [], []
 
 P = 0.01 * np.eye(5)
 X = np.array([[10], [10], [0], [0], [0]])
@@ -89,44 +90,81 @@ sigm = 0.0001
 Q = np.diag([sigm, sigm, sigm, sigm, sigm])
 R = np.diag([sigm])
 
+display_bot = True
+
 for i in np.arange(0, 60*dt, dt):
-    clear(ax)
-    legende(ax)
-    draw_tank(X)
 
     Hk = np.array([[1, 0, 0, 0, 0],
                    [0, 1, 0, 0, 0]])
 
     Fk = np.eye(5)
-    # Fk = np.eye(5) + dt * np.array([[0, 0, 0, np.cos(X[2, 0]), np.sin(X[2, 0])],
-    #                                 [0, 0, 0, np.sin(X[2, 0]), -np.cos(X[2, 0])],
-    #                                 [0, 0, 0, 0, 0],
-    #                                 [0, 0, 0, 0, 0],
-    #                                 [0, 0, 0, 0, 0]])
 
     Gk = dt * np.array([[0, 0, 0],
                         [0, 0, 0],
                         [1, 0, 0],
                         [0, np.cos(X[2, 0]), np.sin(X[2, 0])],
                         [0, np.sin(X[2, 0]), -np.cos(X[2, 0])]])
-    # Gk = dt * np.array([[0, 0, 0],
-    #                     [0, 0, 0],
-    #                     [1, 0, 0],
-    #                     [0, 1, 0],
-    #                     [0, 0, 1]]) 
 
 
-    # Sans bruits
     y = np.array([[X[0, 0]], [X[1, 0]]])
     Xhat, P, ytilde = Kalman(Xhat, P, u, y, Q, R, Fk, Gk, Hk)
 
-    # Display the results
-    draw_ellipse_cov(ax, Xhat[0:2], P[0:2, 0:2], 0.9, Xhat[2,0], col='black')
-    plt.scatter(Xhat[0, 0], Xhat[1, 0], color='red', label = 'Estimation of position', s = 5)
-
-    plt.legend()
-
-    pause(.001)
-
     #Avancement de l'état vrai
     X = X + dt*f(X,u)
+
+    if display_bot:
+        # Display the results
+
+        clear(ax)
+        legende(ax)
+
+        draw_tank(X)
+        draw_ellipse_cov(ax, Xhat[0:2], P[0:2, 0:2], 0.9, Xhat[2,0], col='black')
+        ax.scatter(Xhat[0, 0], Xhat[1, 0], color='red', label = 'Estimation of position', s = 5)
+        ax.legend()
+
+        pause(0.001)
+
+    T.append(i)
+    P11.append(P[0,0])
+    P22.append(P[1,1])
+    P33.append(P[2,2])
+    P44.append(P[3,3])
+    P55.append(P[4,4])
+
+    
+plt.close()
+plt.figure()
+plt.suptitle(f"P(t) Matrix")
+ax1 = plt.subplot2grid((1, 5), (0, 0))
+ax2 = plt.subplot2grid((1, 5), (0, 1))
+ax3 = plt.subplot2grid((1, 5), (0, 2))
+ax4 = plt.subplot2grid((1, 5), (0, 3))
+ax5 = plt.subplot2grid((1, 5), (0, 4))
+
+ax1.plot(T,P11)
+ax1.set_title('P11 (x)')
+ax1.set_xlabel('time [s]')
+ax1.set_ylabel('error [m]')
+
+ax2.plot(T,P22)
+ax2.set_title('P22 (y)')
+ax2.set_xlabel('time [s]')
+ax2.set_ylabel('error [m]')
+
+ax3.plot(T,P33)
+ax3.set_title('P33 (theta)')
+ax3.set_xlabel('time [s]')
+ax3.set_ylabel('error [m]')
+
+ax4.plot(T,P44)
+ax4.set_title('P44 (vx)')
+ax4.set_xlabel('time [s]')
+ax4.set_ylabel('error [m]')
+
+ax5.plot(T,P55)
+ax5.set_title('P55 (vy)')
+ax5.set_xlabel('time [s]')
+ax5.set_ylabel('error [m]')
+
+plt.show()
