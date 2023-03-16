@@ -1,14 +1,60 @@
 from roblib import *
+import sys
 
+global dt
+dt = 0.1
 
-def f(x, u):
-    x_dot = np.array([[x[3, 0]],
-                      [x[4, 0]],
-                      [u[0, 0]],
-                      [u[1, 0]*np.cos(x[2, 0]) + u[2, 0]*np.sin(x[2, 0])],
-                      [u[1, 0]*np.sin(x[2, 0]) - u[2, 0]*np.cos(x[2, 0])]])
+def f(X, u):
+    
+    u1, u2, u3 = u.flatten()
+    x, y, θ, vx, vy = X.flatten()
+    x_dot = np.array([[vx],
+                      [vy],
+                      [u1],
+                      [u2*np.cos(θ) + u3*np.sin(θ)],
+                      [u2*np.sin(θ) - u3*np.cos(θ)]])
     return x_dot
 
+#List of waypoints
+# Wps = 10*array([[1,-1,0],#,0,15,30,15],
+#               [0,0,1]])#,25,30,15,20]])
+
+Wps = array([[0,15,30,15],
+              [25,30,15,20]])
+
+a = -500
+b = 500
+N = 500
+
+Wps = np.random.uniform(low=a, high=b, size=(2, N))
+print(Wps)
+# Observation function
+def g(x):
+    x=x.flatten()
+    wp_detected = False
+    H = array([[0,0,0,0,0]])
+    y = array([[0]])
+    Beta = [] 
+    for i in range(Wps.shape[1]):
+        a=Wps[:,i].flatten() #wps(i) in (xi,yi)
+        da = a-(x[0:2]).flatten()
+        dist = norm(da)      
+        if dist < 15:
+            wp_detected = True
+            plot(array([a[0],x[0]]),array([a[1],x[1]]),"red",1)
+            δ = arctan2(da[1],da[0])
+            Hi = array([[-sin(δ),cos(δ), 0, 0, 0]])
+            yi = [[-sin(δ)*a[0] + cos(δ)*a[1]]]
+            if np.linalg.norm(H) == 0:
+                H = Hi; y = yi
+            else:
+                H = vstack((H,Hi)); y = vstack((y,yi))     
+                
+            Beta.append(0.0001)
+    Γβ = diag(Beta)
+    if len(Beta) != 0:
+        y = y #+ mvnrnd1(Γβ)
+    return H, y, Γβ, wp_detected
 
 def Kalman(xbar, P, u, y, Q, R, F, G, H):
     # Prédiction
@@ -18,6 +64,7 @@ def Kalman(xbar, P, u, y, Q, R, F, G, H):
     # Correction
     ytilde = y - H @ xbar
     Γy = H @ P @ H.T + R
+
     K = P @ H.T @ np.linalg.inv(Γy)
     xbar = xbar + K @ ytilde
     P = P - K @ H @ P
@@ -76,83 +123,95 @@ def legende(ax):
     ax.set_xlabel('x')
     ax.set_ylabel('y')
 
-dt = 0.1
-display_bot = False
-fullGNSS = False
-if display_bot:
-    ax = init_figure(-60, 60, -60, 60)
-T = []
-
-import sys
-N = np.arange(0, 100*dt, dt).shape[0]
-PMatrix = np.zeros((N,25))
-
-P = 0.01 * np.eye(5)
-X = np.array([[0], [0], [0], [0], [0]])
-Xhat = X
-
-sigm_equation = 0
-sigm_measure = 0.0001
-Q = np.diag([sigm_equation, sigm_equation, sigm_equation])
-R = np.diag([5*sigm_measure, sigm_measure])
-
-
-u = np.array([[1], [0.1], [1]])
-
-for i in np.arange(0, 100*dt, dt):
-
-    # Real state
-    X = X + dt*f(X,u)
-
-    Hk = np.array([[1, 0, 0, 0, 0],
-                   [0, 1, 0, 0, 0]])
-
-    u1, u2, u3 = u.flatten()
-    x, y, θ, vx, vy = X.flatten()
-    Fk = np.eye(5) + dt * np.array([[0, 0, 0, 1, 0],
-                                    [0, 0, 0, 0, 1],
-                                    [0, 0, -u2*np.sin(θ) + u3*np.cos(θ), 0, 0],
-                                    [0, 0, u2*np.cos(θ) + u3*np.sin(θ), 0, 0],
-                                    [0, 0, 0, 0, 0]])
-
-    Gk = dt * np.array([[0, 0, 0],
-                        [0, 0, 0],
-                        [1, 0, 0],
-                        [0, np.cos(θ), np.sin(θ)],
-                        [0, np.sin(θ), -np.cos(θ)]])
-
-    if fullGNSS or i%1==0: #each second we get a new value of GNSS data
-        Y = np.array([[x], [y]])
-        Xhat, P, ytilde = Kalman(Xhat, P, u, Y, Q, R, Fk, Gk, Hk)
-    else:
-        Xhat = Xhat + dt*f(Xhat,u) #Fk @ Xhat + Gk @ u
-        P = Fk @ P @ Fk.T + Gk @ Q @ Gk.T
+if __name__ == "__main__":
+    dt = 0.1
+    display_bot = True
+    UWB = True
+    GNSS = False
 
     if display_bot:
-        # Display the results
+        ax = init_figure(-60, 60, -60, 60)
+    T = []
 
-        clear(ax)
-        legende(ax)
+    import sys
+    N = 1000
+    PMatrix = np.zeros((N,25))
 
-        draw_tank(X)
-        draw_ellipse_cov(ax, Xhat[0:2], 10000*P[0:2, 0:2], 0.9, Xhat[2,0], col='black')
-        ax.scatter(Xhat[0, 0], Xhat[1, 0], color='red', label = 'Estimation of position', s = 5)
-        ax.legend()
-        ax.set_xlim(X[0,0]-50, X[0,0]+50)
-        ax.set_ylim(X[1,0]-50, X[1,0]+50)
+    P = 0.01 * np.eye(5)
+    X = np.array([[0], [0], [0], [0], [0]])
+    Xhat = X
 
-        pause(0.001)
+    sigm_equation = 0.1
+    sigm_measure = 1
+    Q = np.diag([sigm_equation, sigm_equation, sigm_equation])
+    R = np.diag([sigm_measure, sigm_measure])
 
-    # Append lists to visualize our covariance model
-    T.append(i)
-    i = int(i/dt)
-    print(i)
-    for j in range(5):
-        for k in range(5):
-            print(i,j+5*k)
-            PMatrix[i,j+5*k] = P[j,k]
+    # u = (w, ax, ay)
+    u = np.array([[0.1], [0.2], [-1]])
 
-if __name__ == "__main__":
+    for i in np.arange(0, N*dt, dt):
+
+        # Real state
+        X = X + dt*f(X,u)
+
+        u1, u2, u3 = u.flatten()
+        x, y, θ, vx, vy = X.flatten()
+
+        Fk = np.eye(5) + dt * np.array([[0, 0, 0, 1, 0],
+                                        [0, 0, 0, 0, 1],
+                                        [0, 0, -u2*np.sin(θ) + u3*np.cos(θ), 0, 0],
+                                        [0, 0, u2*np.cos(θ) + u3*np.sin(θ), 0, 0],
+                                        [0, 0, 0, 0, 0]])
+
+        Gk = dt * np.array([[0, 0, 0],
+                            [0, 0, 0],
+                            [1, 0, 0],
+                            [0, np.cos(θ), np.sin(θ)],
+                            [0, np.sin(θ), -np.cos(θ)]])
+
+        if GNSS:
+            if i%1==0: #each second we get a new value of GNSS data
+                Y = np.array([[x], [y]]) + mvnrnd1(R)
+                Hk = np.array([[1, 0, 0, 0, 0],
+                            [0, 1, 0, 0, 0]])
+                Xhat, P, ytilde = Kalman(Xhat, P, u, Y, Q, R, Fk, Gk, Hk)
+            else:
+                Xhat = Xhat + dt*f(Xhat,u) + mvnrnd1(Gk @ Q @ Gk.T) #Fk @ Xhat + Gk @ u
+                P = Fk @ P @ Fk.T + Gk @ Q @ Gk.T
+
+        if UWB :
+            Hk,Y,R,wp_detected = g(X)
+            if wp_detected:
+                Xhat, P, ytilde = Kalman(Xhat, P, u, Y, Q, R, Fk, Gk, Hk)
+            else:
+                Xhat = Xhat + dt*f(Xhat,u) #+ mvnrnd1(Gk @ Q @ Gk.T) #Fk @ Xhat + Gk @ u
+                P = Fk @ P @ Fk.T + Gk @ Q @ Gk.T
+
+        if display_bot:
+            # Display the results
+
+            clear(ax)
+            legende(ax)
+
+            draw_tank(X)
+            draw_ellipse_cov(ax, Xhat[0:2], P[0:2, 0:2], 0.9, Xhat[2,0], col='black')
+            ax.scatter(Xhat[0, 0], Xhat[1, 0], color='red', label = 'Estimation of position', s = 5)
+            ax.legend()
+            ax.set_xlim(X[0,0]-50, X[0,0]+50)
+            ax.set_ylim(X[1,0]-50, X[1,0]+50)
+
+            scatter(Wps[0], Wps[1])
+
+            pause(0.001)
+
+        # Append lists to visualize our covariance model
+        T.append(i)
+        i = int(i/dt)
+        for j in range(5):
+            for k in range(5):
+                PMatrix[i,j+5*k] = P[j,k]
+
+
     plt.close()
     plt.figure()
     plt.suptitle(f"P(t) Matrix")
@@ -160,42 +219,8 @@ if __name__ == "__main__":
     for i in range(5):
         for j in range(5):
             ax = plt.subplot2grid((5, 5), (i, j))
-            ax.plot(T,PMatrix[:,i+5*j])
+            ax.scatter(T,PMatrix[:,i+5*j],color='darkblue',s=1)
             ax.set_xlabel("Time [s]")
             ax.set_ylabel("Error [m]")
             ax.set_title(f"P_{i},{j}")
     plt.show()
-
-
-    # ax1 = plt.subplot2grid((1, 5), (0, 0))
-    # ax2 = plt.subplot2grid((1, 5), (0, 1))
-    # ax3 = plt.subplot2grid((1, 5), (0, 2))
-    # ax4 = plt.subplot2grid((1, 5), (0, 3))
-    # ax5 = plt.subplot2grid((1, 5), (0, 4))
-
-    # ax1.plot(T,P11)
-    # ax1.set_title('P11 (x)')
-    # ax1.set_xlabel('time [s]')
-    # ax1.set_ylabel('error [m]')
-
-    # ax2.plot(T,P22)
-    # ax2.set_title('P22 (y)')
-    # ax2.set_xlabel('time [s]')
-    # ax2.set_ylabel('error [m]')
-
-    # ax3.plot(T,P33)
-    # ax3.set_title('P33 (theta)')
-    # ax3.set_xlabel('time [s]')
-    # ax3.set_ylabel('error [m]')
-
-    # ax4.plot(T,P44)
-    # ax4.set_title('P44 (vx)')
-    # ax4.set_xlabel('time [s]')
-    # ax4.set_ylabel('error [m]')
-
-    # ax5.plot(T,P55)
-    # ax5.set_title('P55 (vy)')
-    # ax5.set_xlabel('time [s]')
-    # ax5.set_ylabel('error [m]')
-
-    # plt.show()
