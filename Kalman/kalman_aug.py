@@ -12,8 +12,8 @@ def f(x, u):
 
 def Kalman(xbar, P, u, y, Q, R, F, G, H):
     # Prédiction
-    xbar = F @ xbar + G @ u
-    P = F @ P @ F.T + Q
+    xbar = xbar + dt*f(xbar,u) #F @ xbar + G @ u
+    P = F @ P @ F.T + G @ Q @ G.T
 
     # Correction
     ytilde = y - H @ xbar
@@ -77,25 +77,29 @@ def legende(ax):
     ax.set_ylabel('y')
 
 dt = 0.1
-ax = init_figure(-60, 60, -60, 60)
+display_bot = False
+fullGNSS = False
+if display_bot:
+    ax = init_figure(-60, 60, -60, 60)
 T = []
-P11, P22, P33, P44, P55 = [], [], [], [], []
+
+import sys
+N = np.arange(0, 100*dt, dt).shape[0]
+PMatrix = np.zeros((N,25))
 
 P = 0.01 * np.eye(5)
 X = np.array([[0], [0], [0], [0], [0]])
 Xhat = X
-u = np.array([[1], [5], [0]])
 
 sigm_equation = 0
 sigm_measure = 0.0001
-Q = np.diag([sigm_equation, sigm_equation, sigm_equation, sigm_equation, sigm_equation])
+Q = np.diag([sigm_equation, sigm_equation, sigm_equation])
 R = np.diag([5*sigm_measure, sigm_measure])
-display_bot = True
 
-u = np.array([[1], [5], [0]])
+
+u = np.array([[1], [0.1], [1]])
 
 for i in np.arange(0, 100*dt, dt):
-    # u = np.array([[cos(0.5*i)], [np.cos(0.6*i)], [np.cos(0.7*i)]])
 
     # Real state
     X = X + dt*f(X,u)
@@ -103,26 +107,26 @@ for i in np.arange(0, 100*dt, dt):
     Hk = np.array([[1, 0, 0, 0, 0],
                    [0, 1, 0, 0, 0]])
 
+    u1, u2, u3 = u.flatten()
+    x, y, θ, vx, vy = X.flatten()
     Fk = np.eye(5) + dt * np.array([[0, 0, 0, 1, 0],
                                     [0, 0, 0, 0, 1],
-                                    [0, 0, 0, 0, 0],
-                                    [0, 0, 0, 0, 0],
+                                    [0, 0, -u2*np.sin(θ) + u3*np.cos(θ), 0, 0],
+                                    [0, 0, u2*np.cos(θ) + u3*np.sin(θ), 0, 0],
                                     [0, 0, 0, 0, 0]])
 
     Gk = dt * np.array([[0, 0, 0],
                         [0, 0, 0],
                         [1, 0, 0],
-                        # [0, 1, 0],
-                        # [0, 0, 1]])
-                        [0, np.cos(X[2, 0]), np.sin(X[2, 0])],
-                        [0, np.sin(X[2, 0]), -np.cos(X[2, 0])]])
+                        [0, np.cos(θ), np.sin(θ)],
+                        [0, np.sin(θ), -np.cos(θ)]])
 
-    if i%1==0: #each second we get a new value of GNSS data
-        y = np.array([[X[0, 0]], [X[1, 0]]])
-        Xhat, P, ytilde = Kalman(Xhat, P, u, y, Q, R, Fk, Gk, Hk)
+    if fullGNSS or i%1==0: #each second we get a new value of GNSS data
+        Y = np.array([[x], [y]])
+        Xhat, P, ytilde = Kalman(Xhat, P, u, Y, Q, R, Fk, Gk, Hk)
     else:
-        Xhat = Fk @ Xhat + Gk @ u
-        P = Fk @ P @ Fk.T + Q
+        Xhat = Xhat + dt*f(Xhat,u) #Fk @ Xhat + Gk @ u
+        P = Fk @ P @ Fk.T + Gk @ Q @ Gk.T
 
     if display_bot:
         # Display the results
@@ -141,46 +145,57 @@ for i in np.arange(0, 100*dt, dt):
 
     # Append lists to visualize our covariance model
     T.append(i)
-    P11.append(P[0,0])
-    P22.append(P[1,1])
-    P33.append(P[2,2])
-    P44.append(P[3,3])
-    P55.append(P[4,4])
-
+    i = int(i/dt)
+    print(i)
+    for j in range(5):
+        for k in range(5):
+            print(i,j+5*k)
+            PMatrix[i,j+5*k] = P[j,k]
 
 if __name__ == "__main__":
     plt.close()
     plt.figure()
     plt.suptitle(f"P(t) Matrix")
-    ax1 = plt.subplot2grid((1, 5), (0, 0))
-    ax2 = plt.subplot2grid((1, 5), (0, 1))
-    ax3 = plt.subplot2grid((1, 5), (0, 2))
-    ax4 = plt.subplot2grid((1, 5), (0, 3))
-    ax5 = plt.subplot2grid((1, 5), (0, 4))
-
-    ax1.plot(T,P11)
-    ax1.set_title('P11 (x)')
-    ax1.set_xlabel('time [s]')
-    ax1.set_ylabel('error [m]')
-
-    ax2.plot(T,P22)
-    ax2.set_title('P22 (y)')
-    ax2.set_xlabel('time [s]')
-    ax2.set_ylabel('error [m]')
-
-    ax3.plot(T,P33)
-    ax3.set_title('P33 (theta)')
-    ax3.set_xlabel('time [s]')
-    ax3.set_ylabel('error [m]')
-
-    ax4.plot(T,P44)
-    ax4.set_title('P44 (vx)')
-    ax4.set_xlabel('time [s]')
-    ax4.set_ylabel('error [m]')
-
-    ax5.plot(T,P55)
-    ax5.set_title('P55 (vy)')
-    ax5.set_xlabel('time [s]')
-    ax5.set_ylabel('error [m]')
-
+    AX = []
+    for i in range(5):
+        for j in range(5):
+            ax = plt.subplot2grid((5, 5), (i, j))
+            ax.plot(T,PMatrix[:,i+5*j])
+            ax.set_xlabel("Time [s]")
+            ax.set_ylabel("Error [m]")
+            ax.set_title(f"P_{i},{j}")
     plt.show()
+
+
+    # ax1 = plt.subplot2grid((1, 5), (0, 0))
+    # ax2 = plt.subplot2grid((1, 5), (0, 1))
+    # ax3 = plt.subplot2grid((1, 5), (0, 2))
+    # ax4 = plt.subplot2grid((1, 5), (0, 3))
+    # ax5 = plt.subplot2grid((1, 5), (0, 4))
+
+    # ax1.plot(T,P11)
+    # ax1.set_title('P11 (x)')
+    # ax1.set_xlabel('time [s]')
+    # ax1.set_ylabel('error [m]')
+
+    # ax2.plot(T,P22)
+    # ax2.set_title('P22 (y)')
+    # ax2.set_xlabel('time [s]')
+    # ax2.set_ylabel('error [m]')
+
+    # ax3.plot(T,P33)
+    # ax3.set_title('P33 (theta)')
+    # ax3.set_xlabel('time [s]')
+    # ax3.set_ylabel('error [m]')
+
+    # ax4.plot(T,P44)
+    # ax4.set_title('P44 (vx)')
+    # ax4.set_xlabel('time [s]')
+    # ax4.set_ylabel('error [m]')
+
+    # ax5.plot(T,P55)
+    # ax5.set_title('P55 (vy)')
+    # ax5.set_xlabel('time [s]')
+    # ax5.set_ylabel('error [m]')
+
+    # plt.show()
