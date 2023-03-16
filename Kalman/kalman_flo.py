@@ -1,7 +1,7 @@
 from roblib import *
 
 
-def f(x, u):
+def fc(x, u):
     x_dot = np.array([[x[3, 0]],
                       [x[4, 0]],
                       [u[0, 0]],
@@ -9,10 +9,18 @@ def f(x, u):
                       [u[1, 0]*np.sin(x[2, 0]) - u[2, 0]*np.cos(x[2, 0])]])
     return x_dot
 
+def f(x, u):
+    x_dot = np.array([[x[0, 0] + dt*x[3, 0]],
+                      [x[1, 0] + dt*x[4, 0]],
+                      [x[2, 0] + dt*u[0, 0]],
+                      [x[3, 0] + dt*(u[1, 0]*np.cos(x[2, 0]) + u[2, 0]*np.sin(x[2, 0]))],
+                      [x[4, 0] + dt*(u[1, 0]*np.sin(x[2, 0]) - u[2, 0]*np.cos(x[2, 0]))]])
+    return x_dot
+
 def Kalman(xbar, P, u, y, Q, R, F, G, H):
     # Prédiction
-    xbar = F @ xbar + G @ u
-    P = F @ P @ F.T + Q
+    xbar = f(xbar, u)
+    P = F @ P @ F.T + G @ Q @ G.T
 
     # Correction
     ytilde = y - H @ xbar
@@ -26,8 +34,8 @@ def Kalman(xbar, P, u, y, Q, R, F, G, H):
 
 def Kalman_without_mesure(xbar, P, u, Q, F, G):
     # Prédiction
-    xbar = F @ xbar + G @ u
-    P = F @ P @ F.T + Q
+    xbar = f(xbar, u)
+    P = F @ P @ F.T + G @ Q @ G.T
     return xbar, P
 
 def draw_ellipse(c, Γ, η, theta, ax, col):
@@ -96,6 +104,8 @@ def axes(ax):
 dt = 0.1
 ax = init_figure(-40, 40, -40, 40)
 
+T, P11, P22, P33, P44, P55 = [], [], [], [], [], []
+
 P = 0.01 * np.eye(5)
 X = np.array([[0], [0], [0], [0], [0]])
 Xhat = X
@@ -103,14 +113,13 @@ u = np.array([[1], [5], [0]])
 
 sigm_equation = 0
 sigm_measure = 0.0001
-Q = np.diag([sigm_equation, sigm_equation, sigm_equation, sigm_equation, sigm_equation])
+Q = np.diag([sigm_equation, sigm_equation, sigm_equation])
 R = np.diag([5*sigm_measure, sigm_measure])
 
-
+display_bot = True
 for i in np.arange(0, 90*dt, dt):
-    clear(ax)
-    axes(ax)
-    draw_tank(X)
+    #Avancement de l'état vrai
+    X = X + dt*fc(X,u)
 
     Hk = np.array([[1, 0, 0, 0, 0],
                    [0, 1, 0, 0, 0]])
@@ -118,8 +127,8 @@ for i in np.arange(0, 90*dt, dt):
     Fk = np.eye(5) + dt * np.array([[0, 0, 0, 1, 0],
                                     [0, 0, 0, 0, 1],
                                     [0, 0, 0, 0, 0],
-                                    [0, 0, 0, 0, 0],
-                                    [0, 0, 0, 0, 0]])
+                                    [0, 0, -u[1, 0]*np.sin(X[2, 0]) + u[2, 0]*np.cos(X[2, 0]), 0, 0],
+                                    [0, 0, u[1, 0]*np.cos(X[2, 0]) + u[2, 0]*np.sin(X[2, 0]), 0, 0]])
 
     Gk = dt * np.array([[0, 0, 0],
                         [0, 0, 0],
@@ -127,21 +136,71 @@ for i in np.arange(0, 90*dt, dt):
                         [0, np.cos(X[2, 0]), np.sin(X[2, 0])],
                         [0, np.sin(X[2, 0]), -np.cos(X[2, 0])]])
  
-    # Sans bruits
     y = np.array([[X[0, 0]], [X[1, 0]]])
+
     # Xhat, P, ytilde = Kalman(Xhat, P, u, y, Q, R, Fk, Gk, Hk)
     if 20*dt<i<60*dt:
         Xhat, P = Kalman_without_mesure(Xhat, P, u, Q, Fk, Gk)
-        print("---------------------")
+        print("---------------------------")
     else:
         Xhat, P, ytilde = Kalman(Xhat, P, u, y, Q, R, Fk, Gk, Hk)
 
-    draw_ellipse_cov(ax, Xhat[0:2], 10000*P[0:2, 0:2], 0.9, Xhat[2,0], col='black')
-    plt.scatter(Xhat[0, 0], Xhat[1, 0], color='red', label = 'Estimation of position', s = 5)
 
-    plt.legend()
+    if display_bot:
+        clear(ax)
+        axes(ax)
+        draw_tank(X)
+        draw_ellipse_cov(ax, Xhat[0:2], 10000*P[0:2, 0:2], 0.9, Xhat[2,0], col='black')
+        plt.scatter(Xhat[0, 0], Xhat[1, 0], color='red', label = 'Estimation of position', s = 5)
+        plt.legend()
+        pause(.001)
 
-    pause(.001)
+    # Append lists to visualize our covariance model
+    T.append(i)
+    P11.append(P[0,0])
+    P22.append(P[1,1])
+    P33.append(P[2,2])
+    P44.append(P[3,3])
+    P55.append(P[4,4])
 
-    #Avancement de l'état vrai
-    X = X + dt*f(X,u)
+
+
+if __name__ == "__main__":
+    plt.close()
+    plt.figure()
+    plt.suptitle(f"P(t) Matrix")
+    ax1 = plt.subplot2grid((1, 5), (0, 0))
+    ax2 = plt.subplot2grid((1, 5), (0, 1))
+    ax3 = plt.subplot2grid((1, 5), (0, 2))
+    ax4 = plt.subplot2grid((1, 5), (0, 3))
+    ax5 = plt.subplot2grid((1, 5), (0, 4))
+
+    ax1.plot(T,P11)
+    ax1.set_title('P11 (x)')
+    ax1.set_xlabel('time [s]')
+    ax1.set_ylabel('error [m]')
+
+    ax2.plot(T,P22)
+    ax2.set_title('P22 (y)')
+    ax2.set_xlabel('time [s]')
+    ax2.set_ylabel('error [m]')
+
+    ax3.plot(T,P33)
+    ax3.set_title('P33 (theta)')
+    ax3.set_xlabel('time [s]')
+    ax3.set_ylabel('error [m]')
+
+    ax4.plot(T,P44)
+    ax4.set_title('P44 (vx)')
+    ax4.set_xlabel('time [s]')
+    ax4.set_ylabel('error [m]')
+
+    ax5.plot(T,P55)
+    ax5.set_title('P55 (vy)')
+    ax5.set_xlabel('time [s]')
+    ax5.set_ylabel('error [m]')
+
+    print('P : ', P)
+
+    plt.show()
+
