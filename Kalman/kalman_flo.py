@@ -1,4 +1,5 @@
 from roblib import *
+from pyproj import *
 
 
 def fc(X, u):
@@ -23,14 +24,14 @@ def f(X, u):
 
 def Kalman(xbar, P, u, y, Q, R, F, G, H, gnss=True):
     # Prédiction
-    xbar = f(xbar, u) #F @ xbar + G @ u
+    xbar = f(xbar, u) + bruit(xbar)#F @ xbar + G @ u
     P = F @ P @ F.T + G @ Q @ G.T
 
     if gnss == False:
         return(xbar, P)
 
     # Correction
-    ytilde = y - H @ xbar
+    ytilde = y - (H @ xbar + bruit(H@xbar))
     print("ytilde : ", ytilde[0, 0], " ; ", ytilde[1, 0])
     S = H @ P @ H.T + R
     K = P @ H.T @ np.linalg.inv(S)
@@ -38,6 +39,40 @@ def Kalman(xbar, P, u, y, Q, R, F, G, H, gnss=True):
     P = P - K @ H @ P
 
     return xbar, P, ytilde
+
+def bruit(M):
+    B = np.random.normal(0, 0.1, size=(M.shape[0], M.shape[1]))
+    # print('bruit : ', B)
+    return(B)
+
+def GNSS():
+    speed_of_light = 299792458.0
+    f1 = 1575.42e6  # fréquence du signal L1
+    f2 = 1227.60e6  # fréquence du signal L2
+    el = 45.0  # angle d'élévation
+    az = 180.0  # angle d'azimut
+    lat = 48.8584  # latitude de la position de réception
+    lon = 2.2945  # longitude de la position de réception
+    h = 100.0  # hauteur de la position de réception
+    t = 0.0  # temps de réception en secondes
+
+    proj_WGS84 = Proj(proj='latlong', datum='WGS84')
+    proj_ECEF = Proj(proj='geocent', datum='WGS84')
+
+    pos_ecef = transform(proj_WGS84, proj_ECEF, lon, lat, h, radians=False)
+
+    ant1_ecef = np.array(pos_ecef) + np.array([np.sin(el * pi / 180.0) * np.cos(az * pi / 180.0), np.sin(el * pi / 180.0) * np.sin(az * pi / 180.0), np.cos(el * pi / 180.0)]) * 0.5 * speed_of_light / f1
+    ant2_ecef = np.array(pos_ecef) + np.array([np.sin((el + 90.0) * pi / 180.0) * np.cos((az + 180.0) * pi / 180.0), np.sin((el + 90.0) * pi / 180.0) * np.sin((az + 180.0) * pi / 180.0), np.cos((el + 90.0) * pi / 180.0)]) * 0.5 * speed_of_light / f1
+
+    sat_pos_ecef = np.array([0.0, 0.0, 20000.0])  # position de l'émetteur GNSS
+
+    d1 = np.linalg.norm(ant1_ecef - sat_pos_ecef) + np.random.normal(0, 1.0, 1) * 10.0  # pseudodistance à partir de l'antenne 1
+    d2 = np.linalg.norm(ant2_ecef - sat_pos_ecef) + np.random.normal(0, 1.0, 1) * 10.0  # pseudodistance à partir de l'antenne 2
+
+    phase_diff = (d1 - d2) * f1 / speed_of_light
+
+    return(phase_diff)
+
 
 def draw_ellipse(c, Γ, η, theta, ax, col):
     if norm(Γ) == 0:
