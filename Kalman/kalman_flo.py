@@ -171,9 +171,6 @@ for i in tqdm(np.arange(0, N*dt, dt)):
     u1, u2, u3 = u.flatten()
     x1, x2, x3, x4, x5 = X.flatten()
 
-    # Hk = np.array([[0, 0, 1, 0, 0]])
-    # Hk = np.array([[1, 0, 0, 0, 0],
-    #                [0, 1, 0, 0, 0]])
     Hk = np.array([[1, 0, 0, 0, 0],
                    [0, 1, 0, 0, 0],
                    [0, 0, 1, 0, 0]])
@@ -181,18 +178,16 @@ for i in tqdm(np.arange(0, N*dt, dt)):
     Fk = np.eye(5) + dt * np.array([[0, 0, 0, 1, 0],
                                     [0, 0, 0, 0, 1],
                                     [0, 0, 0, 0, 0],
-                                    [0, 0, -u2*np.sin(x3) + u3*np.cos(x3), 0, 0],
-                                    [0, 0, u2*np.cos(x3) + u3*np.sin(x3), 0, 0]])
+                                    [0, 0, -u2*np.sin(Xhat[2, 0]) + u3*np.cos(Xhat[2, 0]), 0, 0],
+                                    [0, 0, u2*np.cos(Xhat[2, 0]) + u3*np.sin(Xhat[2, 0]), 0, 0]])
 
     Gk = dt * np.array([[0, 0, 0],
                         [0, 0, 0],
                         [1, 0, 0],
-                        [0, np.cos(x3), np.sin(x3)],
-                        [0, np.sin(x3), -np.cos(x3)]])
+                        [0, np.cos(Xhat[2, 0]), np.sin(Xhat[2, 0])],
+                        [0, np.sin(Xhat[2, 0]), -np.cos(Xhat[2, 0])]])
 
     if fullGNSS or i%1==0: #each second we get a new value of GNSS data
-        # Y = np.array([[x3]])
-        # Y = np.array([[x1, x2]]).T
         Y = np.array([[x1, x2, x3]]).T + mvnrnd1(R)
         Xhat, P, ytilde, innov_norm = Kalman(Xhat, P, u, Y, Q, R, Fk, Gk, Hk)
     else:
