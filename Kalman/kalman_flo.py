@@ -1,5 +1,6 @@
 from roblib import *
 import sys
+from tqdm import tqdm
 
 
 def fc(X, u):
@@ -24,7 +25,7 @@ def f(X, u):
 
 def Kalman(xbar, P, u, y, Q, R, F, G, H, gnss=True):
     # Prédiction
-    xbar = f(xbar, u) + mvnrnd1(Gk @ Q @ Gk.T) #+ bruit(xbar, 0, 0.1)#F @ xbar + G @ u
+    xbar = f(xbar, u) + mvnrnd1(Gk @ Q @ Gk.T) #+ bruit(xbar, 0, 0.1)
     P = F @ P @ F.T + G @ Q @ G.T
 
     if gnss == False:
@@ -138,7 +139,7 @@ def legende(ax):
 
 
 dt = 0.1
-display_bot = False
+display_bot = True
 fullGNSS = False
 if display_bot:
     ax = init_figure(-20, 20, -20, 20)
@@ -162,7 +163,7 @@ Innov = np.zeros((N, Y.shape[0]*Y.shape[1]))
 Innov_norm = np.zeros((N, Y.shape[0]*Y.shape[1]))
 
 
-for i in np.arange(0, N*dt, dt):
+for i in tqdm(np.arange(0, N*dt, dt)):
     # Real state
     u = control(X,i)
     X = X + dt*fc(X,u)
@@ -220,19 +221,19 @@ for i in np.arange(0, N*dt, dt):
     for j in range(Y.shape[0]):
         for k in range(Y.shape[1]):
             c = Y.shape[0]
-            Innov[i, j+c*k] = Y[j, k]
+            Innov[i, j+c*k] = ytilde[j, k]
             Innov_norm[i, j+c*k] = innov_norm[j, k]
 
 
 if __name__ == "__main__":
     plt.close()
     plt.figure()
-    plt.suptitle(f"P(t) Matrix")
+    plt.suptitle(f"P(t) Matrix : {N} epoch with step dt={dt}")
     for i in range(P.shape[0]):
         for j in range(P.shape[1]):
             ax = plt.subplot2grid((P.shape[0], P.shape[1]), (i, j))
             c = P.shape[0]
-            ax.plot(T,PMatrix[:, i+c*j])
+            ax.plot(T, PMatrix[:, i+c*j])
             ax.set_xlabel("Time [s]")
             ax.set_ylabel("Error [m]")
             ax.set_title(f"P_{i},{j}")
@@ -241,7 +242,7 @@ if __name__ == "__main__":
     print("P : ", P)
 
     plt.figure()
-    plt.suptitle(f"Innovation Matrix")
+    plt.suptitle(f"Innovation Matrix : {N} epoch with step dt={dt}")
     for i in range(Y.shape[0]):
         for j in range(Y.shape[1]):
             ax = plt.subplot2grid((Y.shape[0], 2*Y.shape[1]), (i, j))
