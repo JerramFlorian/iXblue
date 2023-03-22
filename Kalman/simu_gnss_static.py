@@ -12,10 +12,11 @@ lat_deg, lon_deg, cap = gnss["lat"], gnss["lon"], gnss["heading"]
 
 
 #Projecting the NMEA data
-rep_base = prj.CRS("epsg:4919")
-proj = prj.CRS("epsg:4326") #Lambert93 : 2154
-t = prj.Transformer.from_crs(rep_base, proj, always_xy=True)
-print(rep_base.datum, proj.datum)
+# rep_base = prj.CRS("EPSG:4326")
+rep_geo = prj.CRS("EPSG:4326+4919")
+proj = prj.CRS("EPSG:2154")
+t = prj.Transformer.from_crs(rep_geo, proj, always_xy=True)
+print(rep_geo.datum, proj.datum)
 E, N = t.transform(lon_deg, lat_deg)
 
 
