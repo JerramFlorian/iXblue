@@ -139,7 +139,7 @@ def legende(ax):
 
 
 dt = 0.1
-display_bot = True
+display_bot = False
 fullGNSS = False
 if display_bot:
     ax = init_figure(-20, 20, -20, 20)

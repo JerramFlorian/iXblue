@@ -1,21 +1,25 @@
 from roblib import *
 import os
 from tqdm import tqdm
-
-file_path = os.path.dirname(os.path.abspath(__file__))
-file_path = file_path+"\log\gnss_test_station.nma"
-trames = np.genfromtxt(file_path, delimiter = ',', dtype = 'str', comments = '$GPZDA', skip_footer = 1)
-lat = trames[:, 2]
-lon = trames[:, 4]
-lat_deg = ['' for i in range(len(lat))]
-lon_deg = ['' for i in range(len(lon))]
-for i in range(len(lat)):
-    lat_deg[i] += lat[i][0:2] + '.' + str(np.float64(lat[i][2:])/60)[2:8]
-    lat_deg[i] = np.float64(lat_deg[i])
-    lon_deg[i] += lon[i][0:3] + '.' + str(np.float64(lon[i][3:])/60)[2:8]
-    lon_deg[i] = np.float64(lon_deg[i])
+import pyproj as prj
 
 
+#Importing the data (lat, lon, heading)
+file_path = os.path.dirname(os.path.abspath(__file__)) + "\log"
+gnss = np.load(file_path + "\gnss_data.npz")
+
+lat_deg, lon_deg, cap = gnss["lat"], gnss["lon"], gnss["heading"]
+
+
+#Projecting the NMEA data
+rep_base = prj.CRS("epsg:4919")
+proj = prj.CRS("epsg:4326") #Lambert93 : 2154
+t = prj.Transformer.from_crs(rep_base, proj, always_xy=True)
+print(rep_base.datum, proj.datum)
+E, N = t.transform(lon_deg, lat_deg)
+
+
+#Defining some useful functions
 def f(X, u):
     u1, u2, u3 = u.flatten()
     x1, x2, x3, x4, x5 = X.flatten()
@@ -26,20 +30,15 @@ def f(X, u):
                       [x5 + dt*(u2*np.sin(x3) - u3*np.cos(x3))]])
     return x_dot
 
-def Kalman(xbar, P, u, y, Q, R, F, G, H, gnss=True):
+def Kalman(xbar, P, u, y, Q, R, F, G, H):
     # Prédiction
-    xbar = f(xbar, u) #+ mvnrnd1(Gk @ Q @ Gk.T) #+ bruit(xbar, 0, 0.1)
+    xbar = f(xbar, u) + mvnrnd1(Gk @ Q @ Gk.T) #+ bruit(xbar, 0, 0.1)
     P = F @ P @ F.T + G @ Q @ G.T
 
-    if gnss == False:
-        return(xbar, P)
-
     # Correction
-    ytilde = y - (H @ xbar) #+ bruit(H@xbar, 0, 0.1))
-    # print("Innovation : ", ytilde[0, 0], " ; ", ytilde[1, 0], " ; ", ytilde[2, 0])
+    ytilde = y - (H @ xbar)
     S = H @ P @ H.T + R
     innov_norm = sqrtm(np.linalg.inv(S))@ytilde
-    # print("Innovation normalisée : ", innov_norm[0, 0], " ; ", innov_norm[1, 0], " ; ", innov_norm[2, 0])
     K = P @ H.T @ np.linalg.inv(S)
     xbar = xbar + K @ ytilde
     P = P - K @ H @ P
@@ -97,38 +96,38 @@ def draw_ellipse_cov(ax,c,Γ,η, α=0, col ='blue',coledge='black'): # Gaussian 
     draw_ellipse0(ax, c, Γ, a, α,col,coledge)
 
 def legende(ax):
-    # ax.set_xlim(X[0,0]-40, X[0,0]+40)
-    # ax.set_ylim(X[1,0]-40, X[1,0]+40)
+    # ax.set_xlim(Xhat[0,0]-8, Xhat[0,0]+8)
+    # ax.set_ylim(Xhat[1,0]-8, Xhat[1,0]+8)
     ax.set_title('Filtre de Kalman')
     ax.set_xlabel('x')
     ax.set_ylabel('y')
 
 
+#Initializing some values
 dt = 0.1
 display_bot = False
-# fullGNSS = False
 if display_bot:
-    # ax = init_figure(-50, 50, -50, 50)
-    ax = init_figure(40, 55, -5, 10)
+    ax = init_figure(lon_deg[0]-8, lon_deg[0]+8, lat_deg[0]-8, lat_deg[0]+8)
 
 P = 0.01 * np.eye(5)
-Xhat = np.array([[lat_deg[0]], [lon_deg[0]], [0], [0], [0]])
-Y = np.zeros((3, 1))
+Xhat = np.array([[lon_deg[0], lat_deg[0], cap[0], 0, 0]]).T
+Y = np.array([[lon_deg[0], lat_deg[0], cap[0]]])
 
 sigm_equation = 0.001
 sigm_measure = 0.001
 Q = np.diag([sigm_equation, sigm_equation, sigm_equation])
-R = np.diag([5*sigm_measure, sigm_measure])
+R = np.diag([5*sigm_measure, sigm_measure, sigm_measure])
 
 u = np.array([[0], [0], [0]])
 
 T = []
-N = len(lat_deg)
+N = np.min([len(lat_deg), len(lon_deg), len(cap)])
 PMatrix = np.zeros((N, P.shape[0]*P.shape[1]))
 Innov = np.zeros((N, Y.shape[0]*Y.shape[1]))
 Innov_norm = np.zeros((N, Y.shape[0]*Y.shape[1]))
 
 
+#Looping our algorithm
 for i in tqdm(np.arange(0, N*dt, dt)):
     # Real state
 
@@ -136,7 +135,8 @@ for i in tqdm(np.arange(0, N*dt, dt)):
     x1, x2, x3, x4, x5 = Xhat.flatten()
 
     Hk = np.array([[1, 0, 0, 0, 0],
-                   [0, 1, 0, 0, 0]])
+                   [0, 1, 0, 0, 0],
+                   [0, 0, 1, 0, 0]])
 
     Fk = np.eye(5) + dt * np.array([[0, 0, 0, 1, 0],
                                     [0, 0, 0, 0, 1],
@@ -151,12 +151,12 @@ for i in tqdm(np.arange(0, N*dt, dt)):
                         [0, np.sin(x3), -np.cos(x3)]])
 
 
-    Y = np.array([[lat_deg[int(i/dt)], lon_deg[int(i/dt)]]]).T #+ mvnrnd1(R)
+    Y = np.array([[lon_deg[int(i/dt)], lat_deg[int(i/dt)], cap[int(i/dt)]]]).T #+ mvnrnd1(R)
     Xhat, P, ytilde, innov_norm = Kalman(Xhat, P, u, Y, Q, R, Fk, Gk, Hk)
 
 
+    #Display the results if needed
     if display_bot:
-        # Display the results
         draw_tank(Xhat)
         draw_ellipse_cov(ax, Xhat[0:2], 10*P[0:2, 0:2], 0.9, Xhat[2,0], col='black')
         ax.scatter(Xhat[0, 0], Xhat[1, 0], color='red', label = 'Estimation of position', s = 5)
@@ -166,7 +166,7 @@ for i in tqdm(np.arange(0, N*dt, dt)):
         legende(ax)
         
 
-    # Append lists to visualize our covariance model
+    #Appending lists to visualize our covariance model
     T.append(i)
     i = int(i/dt)
     for j in range(P.shape[0]):
@@ -182,6 +182,7 @@ for i in tqdm(np.arange(0, N*dt, dt)):
 
 
 if __name__ == "__main__":
+    #Ploting some useful contents
     plt.close()
     plt.figure()
     plt.suptitle(f"P(t) Matrix : {N} epoch with step dt={dt}")
@@ -218,37 +219,3 @@ if __name__ == "__main__":
             ax.set_ylabel("Innovation normalisée[m]")
             ax.set_title(f"Innov_norm_{i},{j}")
     plt.show()
-
-
-    # ax1 = plt.subplot2grid((1, 5), (0, 0))
-    # ax2 = plt.subplot2grid((1, 5), (0, 1))
-    # ax3 = plt.subplot2grid((1, 5), (0, 2))
-    # ax4 = plt.subplot2grid((1, 5), (0, 3))
-    # ax5 = plt.subplot2grid((1, 5), (0, 4))
-
-    # ax1.plot(T,P11)
-    # ax1.set_title('P11 (x)')
-    # ax1.set_xlabel('time [s]')
-    # ax1.set_ylabel('error [m]')
-
-    # ax2.plot(T,P22)
-    # ax2.set_title('P22 (y)')
-    # ax2.set_xlabel('time [s]')
-    # ax2.set_ylabel('error [m]')
-
-    # ax3.plot(T,P33)
-    # ax3.set_title('P33 (theta)')
-    # ax3.set_xlabel('time [s]')
-    # ax3.set_ylabel('error [m]')
-
-    # ax4.plot(T,P44)
-    # ax4.set_title('P44 (vx)')
-    # ax4.set_xlabel('time [s]')
-    # ax4.set_ylabel('error [m]')
-
-    # ax5.plot(T,P55)
-    # ax5.set_title('P55 (vy)')
-    # ax5.set_xlabel('time [s]')
-    # ax5.set_ylabel('error [m]')
-
-    # plt.show()
