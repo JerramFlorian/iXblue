@@ -85,24 +85,7 @@ def bruit(M, mean, std):
     # print('bruit : ', B)
     return(B)
 
-def draw_ellipse(c, Γ, η, theta, ax, col):
-    if norm(Γ) == 0:
-        Γ = Γ + 0.001 * np.eye(len(Γ[1,:]))
-    a = np.sqrt(-2 * np.log(1 - η))
-    w, v = np.linalg.eigh(Γ)
-    idx = w.argsort()[::-1]
-    w, v = w[idx], v[:, idx]
-    v1 = np.array([[v[0, 0]], [v[1, 0]]])
-    v2 = np.array([[v[0, 1]], [v[1, 1]]])
-    f1 = a * np.sqrt(w[0]) * v1
-    f2 = a * np.sqrt(w[1]) * v2
-    e = Ellipse(xy=c, width=2 * norm(f1), height=2 * norm(f2), angle=theta*180/pi)
-    ax.add_artist(e)
-    e.set_clip_box(ax.bbox)
-    e.set_alpha(0.7)
-    e.set_facecolor('none')
-    e.set_edgecolor(col)
-def draw_ellipse0(ax, c, Γ, a, α, col,coledge='black'):  # classical ellipse (x-c)T * invΓ * (x-c) <a^2
+def draw_ellipse0(ax, c, Γ, a, col,coledge='black'):  # classical ellipse (x-c)T * invΓ * (x-c) <a^2
     # draw_ellipse0(ax,array([[1],[2]]),eye(2),a,[0.5,0.6,0.7])
     A = a * sqrtm(Γ)
     w, v = eig(A)
@@ -110,9 +93,9 @@ def draw_ellipse0(ax, c, Γ, a, α, col,coledge='black'):  # classical ellipse (
     v2 = np.array([[v[0, 1]], [v[1, 1]]])
     f1 = A @ v1
     f2 = A @ v2
-    # φ = (arctan2(v1[1, 0], v1[0, 0]))
-    # α = φ * 180 / 3.14
-    e = Ellipse(xy=c, width=2 * norm(f1), height=2 * norm(f2), angle=α*180/np.pi)
+    φ = (arctan2(v1[1, 0], v1[0, 0]))
+    α = φ * 180 / 3.14
+    e = Ellipse(xy=c, width=2 * norm(f1), height=2 * norm(f2), angle=α)
     ax.add_artist(e)
     e.set_clip_box(ax.bbox)
 
@@ -123,12 +106,12 @@ def draw_ellipse0(ax, c, Γ, a, α, col,coledge='black'):  # classical ellipse (
     # e.set_fill(False)
     # e.set_alpha(1)
     # e.set_edgecolor(col)
-def draw_ellipse_cov(ax,c,Γ,η, α=0, col ='blue',coledge='black'): # Gaussian confidence ellipse with artist
+def draw_ellipse_cov(ax,c,Γ,η, col ='blue',coledge='black'): # Gaussian confidence ellipse with artist
     #draw_ellipse_cov(ax,array([[1],[2]]),eye(2),0.9,[0.5,0.6,0.7])
     if (np.linalg.norm(Γ)==0):
         Γ=Γ+0.001*eye(len(Γ[1,:]))
     a=np.sqrt(-2*log(1-η))
-    draw_ellipse0(ax, c, Γ, a, α,col,coledge)
+    draw_ellipse0(ax, c, Γ, a,col,coledge)
 
 def legende(ax):
     # ax.set_xlim(X[0,0]-40, X[0,0]+40)
@@ -197,7 +180,7 @@ for i in tqdm(np.arange(0, N*dt, dt)):
     if display_bot:
         # Display the results
         draw_tank(X)
-        draw_ellipse_cov(ax, Xhat[0:2], 10*P[0:2, 0:2], 0.9, Xhat[2,0], col='black')
+        draw_ellipse_cov(ax, Xhat[0:2], 10*P[0:2, 0:2], 0.9, col='black')
         ax.scatter(Xhat[0, 0], Xhat[1, 0], color='red', label = 'Estimation of position', s = 5)
         ax.legend()
         pause(0.001)

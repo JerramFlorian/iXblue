@@ -4,7 +4,7 @@ import numpy as np
 
 
 #Importing the NMEA data
-file_path = os.path.dirname(os.path.abspath(__file__)) + "\log"
+file_path = os.path.dirname(os.path.abspath(__file__)) + "\..\log"
 gnss = np.load(file_path + "\gnss_data.npz")
 lat_deg, lon_deg = gnss["lat"], gnss["lon"]
 

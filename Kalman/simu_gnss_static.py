@@ -12,8 +12,7 @@ lat_deg, lon_deg, cap = gnss["lat"], gnss["lon"], gnss["heading"]
 
 
 #Projecting the NMEA data
-# rep_base = prj.CRS("EPSG:4326")
-rep_geo = prj.CRS("EPSG:4326+4919")
+rep_geo = prj.CRS("EPSG:4326")
 proj = prj.CRS("EPSG:2154")
 t = prj.Transformer.from_crs(rep_geo, proj, always_xy=True)
 print(rep_geo.datum, proj.datum)
@@ -33,7 +32,7 @@ def f(X, u):
 
 def Kalman(xbar, P, u, y, Q, R, F, G, H):
     # Prédiction
-    xbar = f(xbar, u) + mvnrnd1(Gk @ Q @ Gk.T) #+ bruit(xbar, 0, 0.1)
+    xbar = f(xbar, u) #+ mvnrnd1(Gk @ Q @ Gk.T) #+ bruit(xbar, 0, 0.1)
     P = F @ P @ F.T + G @ Q @ G.T
 
     # Correction
@@ -51,24 +50,7 @@ def bruit(M, mean, std):
     # print('bruit : ', B)
     return(B)
 
-def draw_ellipse(c, Γ, η, theta, ax, col):
-    if norm(Γ) == 0:
-        Γ = Γ + 0.001 * np.eye(len(Γ[1,:]))
-    a = np.sqrt(-2 * np.log(1 - η))
-    w, v = np.linalg.eigh(Γ)
-    idx = w.argsort()[::-1]
-    w, v = w[idx], v[:, idx]
-    v1 = np.array([[v[0, 0]], [v[1, 0]]])
-    v2 = np.array([[v[0, 1]], [v[1, 1]]])
-    f1 = a * np.sqrt(w[0]) * v1
-    f2 = a * np.sqrt(w[1]) * v2
-    e = Ellipse(xy=c, width=2 * norm(f1), height=2 * norm(f2), angle=theta*180/pi)
-    ax.add_artist(e)
-    e.set_clip_box(ax.bbox)
-    e.set_alpha(0.7)
-    e.set_facecolor('none')
-    e.set_edgecolor(col)
-def draw_ellipse0(ax, c, Γ, a, α, col,coledge='black'):  # classical ellipse (x-c)T * invΓ * (x-c) <a^2
+def draw_ellipse0(ax, c, Γ, a, col,coledge='black'):  # classical ellipse (x-c)T * invΓ * (x-c) <a^2
     # draw_ellipse0(ax,array([[1],[2]]),eye(2),a,[0.5,0.6,0.7])
     A = a * sqrtm(Γ)
     w, v = eig(A)
@@ -76,9 +58,9 @@ def draw_ellipse0(ax, c, Γ, a, α, col,coledge='black'):  # classical ellipse (
     v2 = np.array([[v[0, 1]], [v[1, 1]]])
     f1 = A @ v1
     f2 = A @ v2
-    # φ = (arctan2(v1[1, 0], v1[0, 0]))
-    # α = φ * 180 / 3.14
-    e = Ellipse(xy=c, width=2 * norm(f1), height=2 * norm(f2), angle=α*180/np.pi)
+    φ = (arctan2(v1[1, 0], v1[0, 0]))
+    α = φ * 180 / np.pi
+    e = Ellipse(xy=c, width=2 * norm(f1), height=2 * norm(f2), angle=α)
     ax.add_artist(e)
     e.set_clip_box(ax.bbox)
 
@@ -89,12 +71,12 @@ def draw_ellipse0(ax, c, Γ, a, α, col,coledge='black'):  # classical ellipse (
     # e.set_fill(False)
     # e.set_alpha(1)
     # e.set_edgecolor(col)
-def draw_ellipse_cov(ax,c,Γ,η, α=0, col ='blue',coledge='black'): # Gaussian confidence ellipse with artist
+def draw_ellipse_cov(ax,c,Γ,η, col ='blue',coledge='black'): # Gaussian confidence ellipse with artist
     #draw_ellipse_cov(ax,array([[1],[2]]),eye(2),0.9,[0.5,0.6,0.7])
     if (np.linalg.norm(Γ)==0):
         Γ=Γ+0.001*eye(len(Γ[1,:]))
     a=np.sqrt(-2*log(1-η))
-    draw_ellipse0(ax, c, Γ, a, α,col,coledge)
+    draw_ellipse0(ax, c, Γ, a,col,coledge)
 
 def legende(ax):
     # ax.set_xlim(Xhat[0,0]-8, Xhat[0,0]+8)
@@ -112,12 +94,12 @@ if display_bot:
 
 P = 0.01 * np.eye(5)
 Xhat = np.array([[lon_deg[0], lat_deg[0], cap[0], 0, 0]]).T
-Y = np.array([[lon_deg[0], lat_deg[0], cap[0]]])
+Y = np.array([[lon_deg[0], lat_deg[0], cap[0]]]).T
 
 sigm_equation = 0.001
 sigm_measure = 0.001
 Q = np.diag([sigm_equation, sigm_equation, sigm_equation])
-R = np.diag([5*sigm_measure, sigm_measure, sigm_measure])
+R = np.diag([sigm_measure, sigm_measure, sigm_measure])
 
 u = np.array([[0], [0], [0]])
 
@@ -159,7 +141,7 @@ for i in tqdm(np.arange(0, N*dt, dt)):
     #Display the results if needed
     if display_bot:
         draw_tank(Xhat)
-        draw_ellipse_cov(ax, Xhat[0:2], 10*P[0:2, 0:2], 0.9, Xhat[2,0], col='black')
+        draw_ellipse_cov(ax, Xhat[0:2], 10*P[0:2, 0:2], 0.9, col='black')
         ax.scatter(Xhat[0, 0], Xhat[1, 0], color='red', label = 'Estimation of position', s = 5)
         ax.legend()
         pause(0.001)
