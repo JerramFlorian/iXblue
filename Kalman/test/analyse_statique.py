@@ -14,7 +14,7 @@ innov_norm = np.load(file_path + "\innovation_normalisee.npz")["innovation_norma
 
 
 #Storing the data
-N = 6
+N = 5
 T, data, std = [[] for i in range(N)], [[] for i in range(N)], [[] for i in range(N)]
 T[0], data[0], std[0] = qrunch.allan_deviation(lat)
 T[1], data[1], std[1] = qrunch.allan_deviation(lon)
@@ -23,23 +23,21 @@ T[3], data[3], std[3] = qrunch.allan_deviation(cov_hh)
 # T[4], data[4], std[4] = qrunch.allan_deviation(innov_norm[:, 0])
 # T[5], data[5], std[5] = qrunch.allan_deviation(innov_norm[:, 1])
 T[4], data[4], std[4] = qrunch.allan_deviation(innov_norm[:, 2])
-T = T/3600
+
+# T = [t/3600 for t in T]
 
 
 #Ploting the Allan deviation
 fig, axs = plt.subplots(2, N)
 fig.suptitle(f"Déviation d'Allan")
+data_list = [data, std]
+labels = ["Allan", "Ecart-type"]
 for i in range(2):
     for j in range(N):
         ax = axs[i,j]
-        if i == 0:
-            ax.loglog(T[j], data[j])
-            ax.set_xlabel("Time [h]")
-            ax.set_ylabel("Allan")
-        else:
-            ax.loglog(T[j], std[j])
-            ax.set_xlabel("Time [h]")
-            ax.set_ylabel("Ecart-type")
+        ax.loglog(T[j], data_list[i][j])
+        ax.set_xlabel("Time [h]")
+        ax.set_ylabel(f"{labels[i]}")
 
         #Limiter les chiffres significatifs
         ax.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
@@ -50,15 +48,14 @@ for i in range(2):
 #Ploting the Allan deviation
 fig, axs = plt.subplots(2, int(round(N/2+0.1)))
 fig.suptitle(f"Déviation d'Allan")
+
 for i in range(2):
     for j in range(int(round(N/2+0.1))):
         ax = axs[i,j]
-        if i == 0:
-            ax.loglog(T[j], data[j], label="Allan")
-            ax.loglog(T[j], std[j], label="Ecart-type")
-        else:
-            ax.loglog(T[j + N//2], data[j + N//2], label="Allan")
-            ax.loglog(T[j + N//2], std[j + N//2], label="Ecart-type")            
+        quotient, remainder = divmod(j, int(N/2))
+        index = quotient * int(N/2) + remainder + (N//2 * i)
+        ax.loglog(T[index], data[index], label="Allan")
+        ax.loglog(T[index], std[index], label="Ecart-type")
         ax.set_xlabel("Time [h]")
         ax.legend()
 
@@ -77,9 +74,8 @@ labels = ['lat', 'lon', 'cap', 'cov_hh', 'innov_norm_cap']
 for i, ax in enumerate(axs):
     ax.set_title(titles[i])
     ax.set_xlabel('Time [h]')
-    values = data_list[i]
     for j, l in enumerate(labels):
-        ax.loglog(T[j], values[j], label=f"{l}")
+        ax.loglog(T[j], data_list[i][j], label=f"{l}")
     ax.legend()
 plt.show()
 
