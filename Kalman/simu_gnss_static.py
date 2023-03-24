@@ -6,9 +6,10 @@ import pyproj as prj
 
 #Importing the data (lat, lon, heading)
 file_path = os.path.dirname(os.path.abspath(__file__)) + "\log"
-gnss = np.load(file_path + "\gnss_data.npz")
+gnss = np.load(file_path + "\gnss_data_qrunch_with_nmea.npz")
 
-lat_deg, lon_deg, cap = gnss["lat"], gnss["lon"], gnss["heading"]
+lat_deg, lon_deg, cap = gnss["northing"], gnss["easting"], gnss["heading"]
+cov_latlat, cov_lonlon, cov_latlon, cov_hh, cov_pp, cov_hp = gnss["cov_latlat"], gnss["cov_lonlon"], gnss["cov_latlon"], gnss["cov_hh"], gnss["cov_pp"], gnss["cov_hp"]
 
 
 #Projecting the NMEA data
@@ -141,7 +142,7 @@ for i in tqdm(np.arange(0, N*dt, dt)):
     #Display the results if needed
     if display_bot:
         draw_tank(Xhat)
-        draw_ellipse_cov(ax, Xhat[0:2], 10*P[0:2, 0:2], 0.9, col='black')
+        # draw_ellipse_cov(ax, Xhat[0:2], 10*P[0:2, 0:2], 0.9, col='black')
         ax.scatter(Xhat[0, 0], Xhat[1, 0], color='red', label = 'Estimation of position', s = 5)
         ax.legend()
         pause(0.001)
@@ -202,3 +203,5 @@ if __name__ == "__main__":
             ax.set_ylabel("Innovation normalisée[m]")
             ax.set_title(f"Innov_norm_{i},{j}")
     plt.show()
+
+    np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)) + "\log", "innovation_normalisee.npz"), innovation_normalisee=Innov_norm)
