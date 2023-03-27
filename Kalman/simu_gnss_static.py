@@ -6,9 +6,9 @@ import pyproj as prj
 
 #Importing the data (lat, lon, heading)
 file_path = os.path.dirname(os.path.abspath(__file__)) + "\log"
-gnss = np.load(file_path + "\gnss_data_qrunch_with_nmea.npz")
+gnss = np.load(file_path + "\gnss_data_qrunch_without_nmea.npz")
 
-lat_deg, lon_deg, cap = gnss["northing"], gnss["easting"], gnss["heading"]
+lat_deg, lon_deg, cap = gnss["lat"], gnss["lon"], gnss["heading"]
 cov_latlat, cov_lonlon, cov_latlon, cov_hh, cov_pp, cov_hp = gnss["cov_latlat"], gnss["cov_lonlon"], gnss["cov_latlon"], gnss["cov_hh"], gnss["cov_pp"], gnss["cov_hp"]
 
 
@@ -93,6 +93,7 @@ def legende(ax):
 #Initializing some values
 dt = 0.1
 display_bot = False
+save_data = False
 if display_bot:
     ax = init_figure(lon_deg[0]-8, lon_deg[0]+8, lat_deg[0]-8, lat_deg[0]+8)
 
@@ -169,6 +170,8 @@ for i in tqdm(np.arange(0, N*dt, dt)):
 
 
 if __name__ == "__main__":
+    T = [int(i/dt)/3600 for i in T]
+
     #Ploting some useful contents
     plt.close()
     plt.figure()
@@ -178,7 +181,7 @@ if __name__ == "__main__":
             ax = plt.subplot2grid((P.shape[0], P.shape[1]), (i, j))
             c = P.shape[0]
             ax.plot(T, PMatrix[:, i+c*j])
-            ax.set_xlabel("Time [s]")
+            ax.set_xlabel("Time [h]")
             ax.set_ylabel("Error [m]")
             ax.set_title(f"P_{i},{j}")
     plt.show()
@@ -192,7 +195,7 @@ if __name__ == "__main__":
             ax = plt.subplot2grid((Y.shape[0], 2*Y.shape[1]), (i, j))
             c = Y.shape[0]
             ax.plot(T, Innov[:, i+c*j])
-            ax.set_xlabel("Time [s]")
+            ax.set_xlabel("Time [h]")
             ax.set_ylabel("Innovation [m]")
             ax.set_title(f"Innov_{i},{j}")
 
@@ -207,4 +210,5 @@ if __name__ == "__main__":
             ax.set_title(f"Innov_norm_{i},{j}")
     plt.show()
 
-    np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)) + "\log", "innovation_normalisee.npz"), innovation_normalisee=Innov_norm)
+    if save_data == True:
+        np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)) + "\log", "innovation_normalisee.npz"), innovation_normalisee=Innov_norm)

@@ -4,12 +4,12 @@ import qrunch
 
 
 #Importing the data
-file_path = os.path.dirname(os.path.abspath(__file__)) + "\double_antenne_few_values"
-trames_path = file_path + "\double_antenne_few_values_test.nma"
-pos_path = file_path + "\double_antenne_few_values_test.sbf_SBF_PVTGeodetic2.txt"
-att_path = file_path + "\double_antenne_few_values_test.sbf_SBF_AttEuler1.txt"
-cov_att_path = file_path + "\double_antenne_few_values_test.sbf_SBF_AttCovEuler1.txt"
-cov_pos_path = file_path + "\double_antenne_few_values_test.sbf_SBF_PosCovGeodetic1.txt"
+file_path = os.path.dirname(os.path.abspath(__file__)) + "\sbf"
+trames_path = file_path + "\long_acquisition.nma"
+pos_path = file_path + "\long_acquisition.sbf_SBF_PVTGeodetic2.txt"
+att_path = file_path + "\long_acquisition.sbf_SBF_AttEuler1.txt"
+cov_att_path = file_path + "\long_acquisition.sbf_SBF_AttCovEuler1.txt"
+cov_pos_path = file_path + "\long_acquisition.sbf_SBF_PosCovGeodetic1.txt"
 
 trames = np.genfromtxt(trames_path, delimiter = ',', dtype = 'str', skip_footer = 1)
 pos = np.genfromtxt(pos_path, delimiter = ',', dtype = 'str', skip_header = 10, skip_footer = 1)
@@ -59,12 +59,16 @@ def position_data():
         alt = np.float64(pos[:, 17])*np.pi/180
     except:
         print("Warning : position data weren't rightly saved !")
+        cpt = 0
         lat = [] ; lon = [] ; alt = []
         for i in range(len(pos[:, 15])):
             if pos[i, 15] != '' or pos[i, 16] != '' or pos[i, 17] != '':
                 lat.append(float(pos[i, 15])*np.pi/180)
                 lon.append(float(pos[i, 16])*np.pi/180)
                 alt.append(float(pos[i, 17])*np.pi/180)
+            else:
+                cpt += 1
+        print("Number of erroneous data : ", cpt)
     return(lat, lon, alt)
 
 
@@ -75,11 +79,15 @@ def attitude_data():
         pitch = np.float64(att[:, 18])*np.pi/180
     except:
         print("Warning : attitude data weren't rightly saved !")
+        cpt = 0
         heading = [] ; pitch = []
         for i in range(len(att[:, 17])):
             if att[i, 17] != '' or att[i, 18] != '':
                 heading.append(float(att[i, 17])*np.pi/180)
                 pitch.append(float(att[i, 18])*np.pi/180)
+            else:
+                cpt += 1
+        print("Number of erroneous data : ", cpt)
     return(heading, pitch)
 
 
