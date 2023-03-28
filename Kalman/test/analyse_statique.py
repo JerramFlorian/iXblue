@@ -90,7 +90,7 @@ lg = lambda x : np.log(x)/np.log(10)
 #Ploting the Allan deviation
 fig, axs = plt.subplots(2, int(round(N/2+0.1)))
 fig.suptitle(f"Déviation d'Allan")
-units = ["[m]", "[m]", "[°]", "[°]"]
+units = ["[°]", "[°]"]
 t0_bb, tf_bb = 0, 5
 t0_rw, tf_rw = 4, np.where(T[0]==334)[0][0]
 for i in range(2):
