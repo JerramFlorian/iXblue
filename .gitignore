@@ -1,4 +1,4 @@
 /Kalman/roblib.py
-/Kalman/gonio.py
-/Kalman/log/sbf
+/Kalman/log/sbf/
+/Kalman/log/sat_data/
 /Kalman/__pycache__/
