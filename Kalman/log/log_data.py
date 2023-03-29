@@ -10,12 +10,14 @@ pos_path = file_path + "\long_acquisition.sbf_SBF_PVTGeodetic2.txt"
 att_path = file_path + "\long_acquisition.sbf_SBF_AttEuler1.txt"
 cov_att_path = file_path + "\long_acquisition.sbf_SBF_AttCovEuler1.txt"
 cov_pos_path = file_path + "\long_acquisition.sbf_SBF_PosCovGeodetic1.txt"
+aux_path = file_path + "\long_acquisition.sbf_SBF_AuxAntPositions1.txt"
 
-trames = np.genfromtxt(trames_path, delimiter = ',', dtype = 'str', skip_footer = 1)
-pos = np.genfromtxt(pos_path, delimiter = ',', dtype = 'str', skip_header = 10, skip_footer = 1)
-att = np.genfromtxt(att_path, delimiter = ',', dtype = 'str', skip_header = 10, skip_footer = 1)
-cov_att = np.genfromtxt(cov_att_path, delimiter = ',', dtype = 'str', skip_header = 10, skip_footer = 1)
-cov_pos = np.genfromtxt(cov_pos_path, delimiter = ',', dtype = 'str', skip_header = 10, skip_footer = 1)
+trames = np.genfromtxt(trames_path, delimiter = ',', dtype = 'str', skip_footer = 3)
+pos = np.genfromtxt(pos_path, delimiter = ',', dtype = 'str', skip_footer = 3)
+att = np.genfromtxt(att_path, delimiter = ',', dtype = 'str', skip_footer = 3)
+cov_att = np.genfromtxt(cov_att_path, delimiter = ',', dtype = 'str', skip_footer = 3)
+cov_pos = np.genfromtxt(cov_pos_path, delimiter = ',', dtype = 'str', skip_footer = 3)
+aux = np.genfromtxt(aux_path, delimiter = ',', dtype = 'str', skip_footer = 3)
 
 
 #Extracting NMEA data
@@ -46,10 +48,8 @@ def NMEA_data():
         lon_deg[i] = np.float64(lon_deg[i])
 
     return(utc, lat, lon, lat_deg, lon_deg, nb_sat, sigma_h, alt, alt_geoide)
-
 def NMEA_qrunch():
     return(qrunch.load_gnssnmea(trames_path))
-
 
 #Extracting position data
 def position_data():
@@ -71,7 +71,6 @@ def position_data():
         print("Number of erroneous data : ", cpt)
     return(lat, lon, alt)
 
-
 #Extracting attitude data
 def attitude_data():
     try:
@@ -90,7 +89,6 @@ def attitude_data():
         print("Number of erroneous data : ", cpt)
     return(heading, pitch)
 
-
 #Extracting covariance position data
 def covariance_pos():
     try:
@@ -99,14 +97,17 @@ def covariance_pos():
         cov_latlon = np.float64(cov_pos[:, 19])*np.pi/180
     except:
         print("Warning : position covariance data weren't rightly saved !")
+        cpt = 0
         cov_latlat = [] ; cov_lonlon = [] ; cov_latlon = []
         for i in range(len(cov_pos[:, 15])):
             if cov_pos[i, 15] != '' or cov_pos[i, 16] != '' or cov_pos[i, 19] != '':
                 cov_latlat.append(float(cov_pos[i, 15])*np.pi/180)
                 cov_lonlon.append(float(cov_pos[i, 16])*np.pi/180)
                 cov_latlon.append(float(cov_pos[i, 19])*np.pi/180)
+            else:
+                cpt += 1
+        print("Number of erroneous data : ", cpt)
     return(cov_latlat, cov_lonlon, cov_latlon)
-
 
 #Extracting covariance attitude data
 def covariance_att():
@@ -116,34 +117,57 @@ def covariance_att():
         cov_hp = np.float64(cov_att[:, 18])*np.pi/180
     except:
         print("Warning : attitude covariance data weren't rightly saved !")
+        cpt = 0
         cov_hh = [] ; cov_pp = [] ; cov_hp = []
         for i in range(len(cov_att[:, 15])):
             if cov_att[i, 15] != '' or cov_att[i, 16] != '' or cov_att[i, 18] != '':
                 cov_hh.append(float(cov_att[i, 15])*np.pi/180)
                 cov_pp.append(float(cov_att[i, 16])*np.pi/180)
                 cov_hp.append(float(cov_att[i, 18])*np.pi/180)
+            else:
+                cpt += 1
+        print("Number of erroneous data : ", cpt)
     return(cov_hh, cov_pp, cov_hp)
 
+#Extracting Delta data
+def Delta():
+    try:
+        DE = np.float64(aux[:, -6])
+        DN = np.float64(aux[:, -5])
+        DU = np.float64(aux[:, -4])
+    except:
+        print("Warning : delta data weren't rightly saved !")
+        cpt = 0
+        DE = [] ; DN = [] ; DU = []
+        for i in range(len(aux[:, -6])):
+            if aux[i, -6] != '' or aux[i, -5] != '' or aux[i, -4] != '':
+                DE.append(float(aux[i, -6]))
+                DN.append(float(aux[i, -5]))
+                DU.append(float(aux[i, -4]))
+            else:
+                cpt += 1
+        print("Number of erroneous data : ", cpt)
+    return(DE, DN, DU)
 
 
 if __name__ == "__main__":
     #Manual method
-    print("----- Extracting the manual data -----")
-    utc, lat, lon, lat_deg, lon_deg, nb_sat, sigma_h, alt, alt_geoide = NMEA_data()
-    heading, pitch = attitude_data()
-    cov_latlat, cov_lonlon, cov_latlon = covariance_pos()
-    cov_hh, cov_pp, cov_hp = covariance_att()
-    np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_manual.npz"), utc=utc, lat=lat_deg, lon=lon_deg, heading=heading, pitch=pitch, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, nb_sat=nb_sat, sigma_h=sigma_h, alt=alt, alt_geoide=alt_geoide, dtype=float)
-    print("----- Saving the manual data -----")
+    # print("----- Extracting the manual data -----")
+    # utc, lat, lon, lat_deg, lon_deg, nb_sat, sigma_h, alt, alt_geoide = NMEA_data()
+    # heading, pitch = attitude_data()
+    # cov_latlat, cov_lonlon, cov_latlon = covariance_pos()
+    # cov_hh, cov_pp, cov_hp = covariance_att()
+    # np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_manual.npz"), utc=utc, lat=lat_deg, lon=lon_deg, heading=heading, pitch=pitch, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, nb_sat=nb_sat, sigma_h=sigma_h, alt=alt, alt_geoide=alt_geoide, dtype=float)
+    # print("----- Saving the manual data -----")
 
-    #Qrunch method with NMEA
-    print("----- Extracting the qrunch (with NMEA) data -----")
-    time, lat, lon, alt, easting, northing, zone_number, zone_letter, gps_quality, nb_sat, h_dilution = NMEA_qrunch()
-    heading, pitch = attitude_data()
-    cov_latlat, cov_lonlon, cov_latlon = covariance_pos()
-    cov_hh, cov_pp, cov_hp = covariance_att()
-    np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_with_nmea.npz"), time=time, lat=lat, lon=lon, alt=alt, easting=easting, northing=northing, heading=heading, pitch=pitch, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, zone_number=zone_number, zone_letter=zone_letter, gps_quality=gps_quality, nb_sat=nb_sat, h_dilution=h_dilution)
-    print("----- Saving the qrunch (with NMEA) data -----")
+    # #Qrunch method with NMEA
+    # print("----- Extracting the qrunch (with NMEA) data -----")
+    # time, lat, lon, alt, easting, northing, zone_number, zone_letter, gps_quality, nb_sat, h_dilution = NMEA_qrunch()
+    # heading, pitch = attitude_data()
+    # cov_latlat, cov_lonlon, cov_latlon = covariance_pos()
+    # cov_hh, cov_pp, cov_hp = covariance_att()
+    # np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_with_nmea.npz"), time=time, lat=lat, lon=lon, alt=alt, easting=easting, northing=northing, heading=heading, pitch=pitch, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, zone_number=zone_number, zone_letter=zone_letter, gps_quality=gps_quality, nb_sat=nb_sat, h_dilution=h_dilution)
+    # print("----- Saving the qrunch (with NMEA) data -----")
 
     #Qrunch method without NMEA
     print("----- Extracting the qrunch (without NMEA) data -----")
@@ -151,5 +175,8 @@ if __name__ == "__main__":
     heading, pitch = attitude_data()
     cov_latlat, cov_lonlon, cov_latlon = covariance_pos()
     cov_hh, cov_pp, cov_hp = covariance_att()
-    np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_without_nmea.npz"), lat=lat, lon=lon, alt=alt, heading=heading, pitch=pitch, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp)
+    DE, DN, DU = Delta()
+    np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_without_nmea.npz"), lat=lat, lon=lon, alt=alt, heading=heading, pitch=pitch, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, DE=DE, DN=DN, DU=DU)
     print("----- Saving the qrunch (without NMEA) data -----")
+
+

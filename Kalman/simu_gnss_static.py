@@ -32,10 +32,7 @@ def f(X, u):
     return x_dot
 
 def Kalman(xbar, P, u, y, Q, R, F, G, H):
-    # Prédiction
-    # print('avant : ', xbar)
     xbar = f(xbar, u) #+ mvnrnd1(Gk @ Q @ Gk.T) #+ bruit(xbar, 0, 0.1)
-    # print("après : ", xbar)
     P = F @ P @ F.T + G @ Q @ G.T
 
     # Correction
@@ -101,7 +98,7 @@ P = 0.01 * np.eye(5)
 Xhat = np.array([[lon_deg[0], lat_deg[0], cap[0], 0, 0]]).T
 Y = np.array([[lon_deg[0], lat_deg[0], cap[0]]]).T
 
-sigm_equation = 0.00
+sigm_equation = 0.001
 sigm_measure = 0.001
 Q = np.diag([sigm_equation, sigm_equation, sigm_equation])
 R = np.diag([sigm_measure, sigm_measure, sigm_measure])
@@ -139,7 +136,7 @@ for i in tqdm(np.arange(0, N*dt, dt)):
                         [0, np.sin(x3), -np.cos(x3)]])
 
 
-    Y = np.array([[lon_deg[int(i/dt)], lat_deg[int(i/dt)], cap[int(i/dt)]]]).T #+ mvnrnd1(R)
+    Y = np.array([[lon_deg[int(i/dt)], lat_deg[int(i/dt)], cap[int(i/dt)]]]).T
     Xhat, P, ytilde, innov_norm = Kalman(Xhat, P, u, Y, Q, R, Fk, Gk, Hk)
 
 
