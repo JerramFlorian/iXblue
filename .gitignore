@@ -1,4 +1,7 @@
 /Kalman/roblib.py
 /Kalman/log/sbf/
 /Kalman/log/sat_data/
-/Kalman/__pycache__/
+*.sbf
+*.nma
+*.txt
+*/__pycache__/
