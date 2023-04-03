@@ -1,7 +1,6 @@
 import numpy as np
 from numpy import cos, sin
 import os
-from tqdm import tqdm
 
 
 #Importing the data
@@ -70,14 +69,14 @@ def CPD(X):
 
 
 if __name__ == "__main__":
-    print("----- Extracting the satellite vis data -----")
+    print("\n----- Extracting the satellite vis data -----")
     elev_satvis = elevation(satvis, 16) ; azim_satvis = azimuth(satvis, 14)
     nb_sat = sat_number(satvis, 10)
     np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "sat_data_vis.npz"), elev=elev_satvis, azim=azim_satvis, nb_sat=nb_sat)
-    print("----- Saving the satellite vis data -----")
+    print("----- Saving the satellite vis data -----\n")
 
     print("----- Extracting the measure data -----")
     L = np.float64(cpd_data[:, -5]) ; f = np.float64(cpd_data[:, -6])
     cpd_mean = CPD(cpd_data)
     np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "measure.npz"), L=L, f=f, Dph=cpd_mean)
-    print("----- Saving the emasure data -----")
+    print("----- Saving the emasure data -----\n")

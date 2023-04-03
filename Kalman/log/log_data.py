@@ -4,13 +4,13 @@ import qrunch
 
 
 #Importing the data
-file_path = os.path.dirname(os.path.abspath(__file__)) + "\sbf"
-trames_path = file_path + "\long_acquisition.nma"
-pos_path = file_path + "\long_acquisition.sbf_SBF_PVTGeodetic2.txt"
-att_path = file_path + "\long_acquisition.sbf_SBF_AttEuler1.txt"
-cov_att_path = file_path + "\long_acquisition.sbf_SBF_AttCovEuler1.txt"
-cov_pos_path = file_path + "\long_acquisition.sbf_SBF_PosCovGeodetic1.txt"
-aux_path = file_path + "\long_acquisition.sbf_SBF_AuxAntPositions1.txt"
+file_path = os.path.dirname(os.path.abspath(__file__)) + "\sbf\moving"
+trames_path = file_path + "\long_acquisition_rov.nma"
+pos_path = file_path + "\long_acquisition_rov.sbf_SBF_PVTGeodetic2.txt"
+att_path = file_path + "\long_acquisition_rov.sbf_SBF_AttEuler1.txt"
+cov_att_path = file_path + "\long_acquisition_rov.sbf_SBF_AttCovEuler1.txt"
+cov_pos_path = file_path + "\long_acquisition_rov.sbf_SBF_PosCovGeodetic1.txt"
+aux_path = file_path + "\long_acquisition_rov.sbf_SBF_AuxAntPositions1.txt"
 
 trames = np.genfromtxt(trames_path, delimiter = ',', dtype = 'str', skip_footer = 3)
 pos = np.genfromtxt(pos_path, delimiter = ',', dtype = 'str', skip_footer = 3)
@@ -149,6 +149,12 @@ def Delta():
         print("Number of erroneous data : ", cpt)
     return(DE, DN, DU)
 
+#Calculating the cap
+def calc_att(be, bn, bu):
+    be, bn, bu = np.array(be), np.array(bn), np.array(bu)
+    head = np.arccos(bn/np.sqrt(bn**2+be**2))*180/np.pi
+    pitch = np.arctan(bu/np.sqrt(bn**2+be**2))*180/np.pi
+    return(360-head, pitch)
 
 if __name__ == "__main__":
     #Manual method
@@ -170,13 +176,14 @@ if __name__ == "__main__":
     # print("----- Saving the qrunch (with NMEA) data -----")
 
     #Qrunch method without NMEA
-    print("----- Extracting the qrunch (without NMEA) data -----")
+    print("\n----- Extracting the qrunch (without NMEA) data -----")
     lat, lon, alt = position_data()
     heading, pitch = attitude_data()
     cov_latlat, cov_lonlon, cov_latlon = covariance_pos()
     cov_hh, cov_pp, cov_hp = covariance_att()
     DE, DN, DU = Delta()
-    np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_without_nmea.npz"), lat=lat, lon=lon, alt=alt, heading=heading, pitch=pitch, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, DE=DE, DN=DN, DU=DU)
-    print("----- Saving the qrunch (without NMEA) data -----")
+    head, pit = calc_att(DE, DN, DU)
+    np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_without_nmea.npz"), lat=lat, lon=lon, alt=alt, heading=heading, pitch=pitch, calc_head=head, calc_pitch=pit, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, DE=DE, DN=DN, DU=DU)
+    print("----- Saving the qrunch (without NMEA) data -----\n")
 
 
