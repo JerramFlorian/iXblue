@@ -9,6 +9,7 @@ from matplotlib.ticker import ScalarFormatter
 file_path = os.path.dirname(os.path.abspath(__file__)) + "\..\log"
 gnss = np.load(file_path + "\gnss_data_qrunch_without_nmea.npz")
 lat, lon = gnss["lat"], gnss["lon"]
+print(lat, lon)
 cap = gnss["heading"]
 cov_latlat, cov_lonlon, cov_latlon, cov_hh, cov_pp, cov_hp = gnss["cov_latlat"], gnss["cov_lonlon"], gnss["cov_latlon"], gnss["cov_hh"], gnss["cov_pp"], gnss["cov_hp"]
 innov_norm = np.load(file_path + "\innovation_normalisee.npz")["innovation_normalisee"]
@@ -45,21 +46,21 @@ T[5], data[5], std[5] = qrunch.allan_deviation(head)
 # T = [t/3600 for t in T]
 
 
-# #Ploting the Allan deviation
-# fig, axs = plt.subplots(2, int(round(N/2+0.1)))
-# fig.suptitle(f"Déviation d'Allan")
-# titles = ["Lat [rad]", "Lon [rad]", "Delta North [m]", "Delta Est [m]", "heading [rad]", "heading [rad]"]
-# for i in range(2):
-#     for j in range(int(round(N/2+0.1))):
-#         ax = axs[i,j]
-#         quotient, remainder = divmod(j, int(N/2))
-#         index = quotient * int(N/2) + remainder + (N//2 * i)
-#         ax.loglog(T[index], data[index], label="allan")
-#         ax.loglog(T[index], std[index], label="écart-type")
-#         ax.set_xlabel("Time [s]")
-#         ax.set_ylabel(f"{titles[index]}")
-#         ax.legend()
-# # plt.show()
+#Ploting the Allan deviation
+fig, axs = plt.subplots(2, int(round(N/2+0.1)))
+fig.suptitle(f"Déviation d'Allan")
+titles = ["Lat [rad]", "Lon [rad]", "Delta North [m]", "Delta Est [m]", "heading [rad]", "heading [rad]"]
+for i in range(2):
+    for j in range(int(round(N/2+0.1))):
+        ax = axs[i,j]
+        quotient, remainder = divmod(j, int(N/2))
+        index = quotient * int(N/2) + remainder + (N//2 * i)
+        ax.loglog(T[index], data[index], label="allan")
+        ax.loglog(T[index], std[index], label="écart-type")
+        ax.set_xlabel("Time [s]")
+        ax.set_ylabel(f"{titles[index]}")
+        ax.legend()
+# plt.show()
 
 
 #Ploting the Allan deviation
@@ -69,7 +70,7 @@ titles = ["Lat [rad]", "Lon [rad]", "Delta North [m]", "Delta Est [m]", "heading
 t0_bb, tf_bb = [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0]
 t0_rw, tf_rw = [0, 0, 4, 4, 4, 4], [np.where(T[0]==1033)[0][0], np.where(T[0]==1033)[0][0], np.where(T[0]==210)[0][0], np.where(T[0]==210)[0][0], np.where(T[0]==210)[0][0], np.where(T[0]==210)[0][0]]
 B = ["rw", "rw", "bc", "bc", "bc", "bc"]
-sig = [np.sqrt(3)*10**(-9.884), np.sqrt(3)*10**(-9.489), 0.0825, 0.045, 0.03, 0.03]
+sig = [np.sqrt(3)*10**(-8.125), np.sqrt(3)*10**(-7.731), 0.0825, 0.045, 0.03, 0.03]
 for i in range(2):
     for j in range(int(round(N/2+0.1))):
         ax = axs[i,j]
@@ -95,7 +96,7 @@ for i in range(2):
             ax.loglog(T[index], np.sqrt(sum(eval(f'y2_bc_{index-1}_{i}**2') for i in range(1, len(tau[index-2])+1))), label=f"{B[index]} : {tau[index-2]}")
         ax.set_xlabel("Time [s]")
         ax.set_ylabel(f"{titles[index]}")
-        # ax.legend()
+        ax.legend()
 plt.show()
 
 
@@ -137,3 +138,9 @@ plt.show()
 #         ax.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
 #         ax.yaxis.get_major_formatter().set_powerlimits((0, 0))
 # plt.show()
+
+
+if __name__ == "__main__":
+    save_data = True
+    if save_data == True:
+        np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)) + "\..\log", "deviation_allan.npz"), dev_lat=data[0], dev_lon=data[1], dev_cap=data[4])

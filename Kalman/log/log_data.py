@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import qrunch
+import time
 
 
 #Importing the data
@@ -52,27 +53,27 @@ def NMEA_qrunch():
     return(qrunch.load_gnssnmea(trames_path))
 
 #Extracting position data
-def position_data():
+def position_data(): #radian
     try:
-        lat = np.float64(pos[:, 15])*np.pi/180
-        lon = np.float64(pos[:, 16])*np.pi/180
-        alt = np.float64(pos[:, 17])*np.pi/180
+        lat = np.float64(pos[:, 15])
+        lon = np.float64(pos[:, 16])
+        alt = np.float64(pos[:, 17])
     except:
         print("Warning : position data weren't rightly saved !")
         cpt = 0
         lat = [] ; lon = [] ; alt = []
         for i in range(len(pos[:, 15])):
             if pos[i, 15] != '' or pos[i, 16] != '' or pos[i, 17] != '':
-                lat.append(float(pos[i, 15])*np.pi/180)
-                lon.append(float(pos[i, 16])*np.pi/180)
-                alt.append(float(pos[i, 17])*np.pi/180)
+                lat.append(float(pos[i, 15]))
+                lon.append(float(pos[i, 16]))
+                alt.append(float(pos[i, 17]))
             else:
                 cpt += 1
         print("Number of erroneous data : ", cpt)
     return(lat, lon, alt)
 
 #Extracting attitude data
-def attitude_data():
+def attitude_data(): #radian
     try:
         heading = np.float64(att[:, 17])*np.pi/180
         pitch = np.float64(att[:, 18])*np.pi/180
@@ -90,47 +91,47 @@ def attitude_data():
     return(heading, pitch)
 
 #Extracting covariance position data
-def covariance_pos():
+def covariance_pos(): #m²
     try:
-        cov_latlat = np.float64(cov_pos[:, 15])*np.pi/180
-        cov_lonlon = np.float64(cov_pos[:, 16])*np.pi/180
-        cov_latlon = np.float64(cov_pos[:, 19])*np.pi/180
+        cov_latlat = np.float64(cov_pos[:, 15])
+        cov_lonlon = np.float64(cov_pos[:, 16])
+        cov_latlon = np.float64(cov_pos[:, 19])
     except:
         print("Warning : position covariance data weren't rightly saved !")
         cpt = 0
         cov_latlat = [] ; cov_lonlon = [] ; cov_latlon = []
         for i in range(len(cov_pos[:, 15])):
             if cov_pos[i, 15] != '' or cov_pos[i, 16] != '' or cov_pos[i, 19] != '':
-                cov_latlat.append(float(cov_pos[i, 15])*np.pi/180)
-                cov_lonlon.append(float(cov_pos[i, 16])*np.pi/180)
-                cov_latlon.append(float(cov_pos[i, 19])*np.pi/180)
+                cov_latlat.append(float(cov_pos[i, 15]))
+                cov_lonlon.append(float(cov_pos[i, 16]))
+                cov_latlon.append(float(cov_pos[i, 19]))
             else:
                 cpt += 1
         print("Number of erroneous data : ", cpt)
     return(cov_latlat, cov_lonlon, cov_latlon)
 
 #Extracting covariance attitude data
-def covariance_att():
+def covariance_att(): #rad²
     try:
-        cov_hh = np.float64(cov_att[:, 15])*np.pi/180
-        cov_pp = np.float64(cov_att[:, 16])*np.pi/180
-        cov_hp = np.float64(cov_att[:, 18])*np.pi/180
+        cov_hh = np.float64(cov_att[:, 15])*(np.pi/180)**2
+        cov_pp = np.float64(cov_att[:, 16])*(np.pi/180)**2
+        cov_hp = np.float64(cov_att[:, 18])*(np.pi/180)**2
     except:
         print("Warning : attitude covariance data weren't rightly saved !")
         cpt = 0
         cov_hh = [] ; cov_pp = [] ; cov_hp = []
         for i in range(len(cov_att[:, 15])):
             if cov_att[i, 15] != '' or cov_att[i, 16] != '' or cov_att[i, 18] != '':
-                cov_hh.append(float(cov_att[i, 15])*np.pi/180)
-                cov_pp.append(float(cov_att[i, 16])*np.pi/180)
-                cov_hp.append(float(cov_att[i, 18])*np.pi/180)
+                cov_hh.append(float(cov_att[i, 15])*(np.pi/180)**2)
+                cov_pp.append(float(cov_att[i, 16])*(np.pi/180)**2)
+                cov_hp.append(float(cov_att[i, 18])*(np.pi/180)**2)
             else:
                 cpt += 1
         print("Number of erroneous data : ", cpt)
     return(cov_hh, cov_pp, cov_hp)
 
 #Extracting Delta data
-def Delta():
+def Delta(): #m
     try:
         DE = np.float64(aux[:, -6])
         DN = np.float64(aux[:, -5])
@@ -150,7 +151,7 @@ def Delta():
     return(DE, DN, DU)
 
 #Calculating the cap
-def calc_att(be, bn, bu):
+def calc_att(be, bn, bu): #deg
     be, bn, bu = np.array(be), np.array(bn), np.array(bu)
     head = np.arccos(bn/np.sqrt(bn**2+be**2))*180/np.pi
     pitch = np.arctan(bu/np.sqrt(bn**2+be**2))*180/np.pi
@@ -185,5 +186,3 @@ if __name__ == "__main__":
     head, pit = calc_att(DE, DN, DU)
     np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_without_nmea.npz"), lat=lat, lon=lon, alt=alt, heading=heading, pitch=pitch, calc_head=head, calc_pitch=pit, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, DE=DE, DN=DN, DU=DU)
     print("----- Saving the qrunch (without NMEA) data -----\n")
-
-

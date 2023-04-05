@@ -1,7 +1,14 @@
+import os
 from roblib import *
 import sys
 from tqdm import tqdm
 
+
+
+#Importing the data (lat, lon, heading)
+file_path = os.path.dirname(os.path.abspath(__file__)) + "\log"
+allan = np.load(file_path + "\deviation_allan.npz")
+dev_lat, dev_lon, dev_cap = np.sqrt(3)*10**(-8.125), np.sqrt(3)*10**(-7.731), 0.0825
 
 def fc(X, u):
     u1, u2, u3 = u.flatten()
@@ -25,7 +32,9 @@ def f(X, u):
 
 def Kalman(xbar, P, u, y, Q, R, F, G, H, gnss=True):
     # Prédiction
-    xbar = f(xbar, u) + mvnrnd1(Gk @ Q @ Gk.T) #+ bruit(xbar, 0, 0.1)
+    # BR2 = np.vstack([bruit(), 0, 0])
+    # print("BR2 : ", BR2)
+    xbar = f(xbar, u) #+ BR2 #+ mvnrnd1(G @ Q @ G.T)
     P = F @ P @ F.T + G @ Q @ G.T
 
     if gnss == False:
@@ -33,10 +42,11 @@ def Kalman(xbar, P, u, y, Q, R, F, G, H, gnss=True):
 
     # Correction
     ytilde = y - (H @ xbar) #+ bruit(H@xbar, 0, 0.1))
-    # print("Innovation : ", ytilde[0, 0], " ; ", ytilde[1, 0], " ; ", ytilde[2, 0])
+    print("y : ", y)
+    print("Hx : ", H @ xbar)
+    print("ytilde : ", ytilde)
     S = H @ P @ H.T + R
     innov_norm = sqrtm(np.linalg.inv(S))@ytilde
-    # print("Innovation normalisée : ", innov_norm[0, 0], " ; ", innov_norm[1, 0], " ; ", innov_norm[2, 0])
     K = P @ H.T @ np.linalg.inv(S)
     xbar = xbar + K @ ytilde
     P = P - K @ H @ P
@@ -80,9 +90,14 @@ def control(x,t):
 
     return u 
 
-def bruit(M, mean, std):
-    B = np.random.normal(mean, std, size=(M.shape[0], M.shape[1]))
-    # print('bruit : ', B)
+def bruit():
+    np.random.seed(42)
+    mu = 0
+    w_lat = np.random.normal(mu, dev_lat)
+    w_lon = np.random.normal(mu, dev_lon)
+    # w_cap = np.random.normal(mu, dev_cap)
+    B = np.vstack([np.cumsum(w_lat), np.cumsum(w_lon), 0]) #, np.cumsum(w_cap)])
+    B = np.vstack([w_lat, w_lon, 0]) #, w_cap])
     return(B)
 
 def draw_ellipse0(ax, c, Γ, a, col,coledge='black'):  # classical ellipse (x-c)T * invΓ * (x-c) <a^2
@@ -123,7 +138,7 @@ def legende(ax):
 
 dt = 0.1
 display_bot = False
-fullGNSS = False
+fullGNSS = True
 if display_bot:
     ax = init_figure(-20, 20, -20, 20)
 
@@ -134,13 +149,13 @@ Y = np.zeros((3, 1))
 
 sigm_equation = 0.001
 sigm_measure = 0.001
-Q = np.diag([sigm_equation, sigm_equation, sigm_equation])
-R = np.diag([5*sigm_measure, sigm_measure, sigm_measure])
+Q = np.diag([sigm_equation, sigm_equation, sigm_equation]) #matrice de covariance de bruit pour l'état du système
+R = np.diag([dev_lat**2, dev_lon**2, dev_cap**2]) #matrice de covariance de bruit pour les mesures
 
-u = np.array([[1], [5], [0]])
+u = np.array([[0], [0], [0]])
 
 T = []
-N = 1000
+N = 10
 PMatrix = np.zeros((N, P.shape[0]*P.shape[1]))
 Innov = np.zeros((N, Y.shape[0]*Y.shape[1]))
 Innov_norm = np.zeros((N, Y.shape[0]*Y.shape[1]))
@@ -171,7 +186,10 @@ for i in tqdm(np.arange(0, N*dt, dt)):
                         [0, np.sin(Xhat[2, 0]), -np.cos(Xhat[2, 0])]])
 
     if fullGNSS or i%1==0: #each second we get a new value of GNSS data
-        Y = np.array([[x1, x2, x3]]).T + mvnrnd1(R)
+        BR = bruit()
+        print("BR : ", BR)
+        Y = np.array([[x1, x2, x3]]).T + BR #+ mvnrnd1(R)
+        print("Y : ", Y)
         Xhat, P, ytilde, innov_norm = Kalman(Xhat, P, u, Y, Q, R, Fk, Gk, Hk)
     else:
         Xhat, P = Kalman(Xhat, P, u, Y, Q, R, Fk, Gk, Hk, False)
@@ -213,7 +231,7 @@ if __name__ == "__main__":
             c = P.shape[0]
             ax.plot(T, PMatrix[:, i+c*j])
             ax.set_xlabel("Time [s]")
-            ax.set_ylabel("Error [m]")
+            ax.set_ylabel("Error [rad]")
             ax.set_title(f"P_{i},{j}")
     plt.show()
 
@@ -227,7 +245,7 @@ if __name__ == "__main__":
             c = Y.shape[0]
             ax.plot(T, Innov[:, i+c*j])
             ax.set_xlabel("Time [s]")
-            ax.set_ylabel("Innovation [m]")
+            ax.set_ylabel("Innovation [rad]")
             ax.set_title(f"Innov_{i},{j}")
 
             if j==0:
@@ -237,7 +255,7 @@ if __name__ == "__main__":
             c = Y.shape[0]
             ax.plot(T, Innov_norm[:, i+c*j])
             ax.set_xlabel("Time [s]")
-            ax.set_ylabel("Innovation normalisée[m]")
+            ax.set_ylabel("Innovation normalisée[rad]")
             ax.set_title(f"Innov_norm_{i},{j}")
     plt.show()
 
@@ -251,7 +269,7 @@ if __name__ == "__main__":
     # ax1.plot(T,P11)
     # ax1.set_title('P11 (x)')
     # ax1.set_xlabel('time [s]')
-    # ax1.set_ylabel('error [m]')
+    # ax1.set_ylabel('error [rad]')
 
     # ax2.plot(T,P22)
     # ax2.set_title('P22 (y)')
