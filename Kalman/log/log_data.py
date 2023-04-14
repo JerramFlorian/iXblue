@@ -1,11 +1,11 @@
 import numpy as np
 import os
 import qrunch
-import time
+import pyproj as prj
 
 
 #Importing the data
-file_path = os.path.dirname(os.path.abspath(__file__)) + "\sbf\moving"
+file_path = os.path.dirname(os.path.abspath(__file__)) + "\sbf\moving\SBAS"
 trames_path = file_path + "\long_acquisition_rov.nma"
 pos_path = file_path + "\long_acquisition_rov.sbf_SBF_PVTGeodetic2.txt"
 att_path = file_path + "\long_acquisition_rov.sbf_SBF_AttEuler1.txt"
@@ -157,6 +157,28 @@ def calc_att(be, bn, bu): #deg
     pitch = np.arctan(bu/np.sqrt(bn**2+be**2))*180/np.pi
     return(360-head, pitch)
 
+#Projecting the NMEA data
+def proj2(lon_rad, lat_rad): #radian --> m
+    rep_geo = prj.CRS("EPSG:4326")
+    proj = prj.CRS("EPSG:2154")
+    t = prj.Transformer.from_crs(rep_geo, proj, always_xy=True)
+    print(rep_geo.datum, proj.datum)
+    E, N = t.transform(lon_rad, lat_rad)
+    return(E, N)
+
+#Projecting the NMEA data
+def proj(lon_rad, lat_rad): #radian --> m
+    lambert93 = prj.Proj("+init=EPSG:2154")
+    x, y = prj.transform(prj.Proj("+proj=longlat +datum=WGS84"), lambert93, lon_rad, lat_rad)
+    return(x, y)
+
+#Offset
+def offset(lon_m, lat_m): #m --> m
+    m_lon, m_lat = np.mean(lon_m), np.mean(lat_m)
+    lon_m, lat_m = lon_m - m_lon, lat_m - m_lat
+    return(lon_m, lat_m)
+
+
 if __name__ == "__main__":
     #Manual method
     # print("----- Extracting the manual data -----")
@@ -184,5 +206,7 @@ if __name__ == "__main__":
     cov_hh, cov_pp, cov_hp = covariance_att()
     DE, DN, DU = Delta()
     head, pit = calc_att(DE, DN, DU)
-    np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_without_nmea.npz"), lat=lat, lon=lon, alt=alt, heading=heading, pitch=pitch, calc_head=head, calc_pitch=pit, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, DE=DE, DN=DN, DU=DU)
+    lon_m, lat_m = proj2(lon, lat)
+    lon_m, lat_m = offset(lon_m, lat_m)
+    np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_without_nmea.npz"), lat=lat, lon=lon, alt=alt, lat_m=lat_m, lon_m=lon_m, heading=heading, pitch=pitch, calc_head=head, calc_pitch=pit, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, DE=DE, DN=DN, DU=DU)
     print("----- Saving the qrunch (without NMEA) data -----\n")
