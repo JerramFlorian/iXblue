@@ -45,7 +45,7 @@ def Kalman(xbar, P, u, y, Q, R, F, G, H):
 
     # Correction
     ytilde = y - (H @ xbar)
-    S = H @ P @ H.T + R
+    S = H @ P @ H.T + R # matrice de covariance d'innovation : covariance des erreurs de mesure entre les mesures réelles et les prédictions de mesure du filtre de Kalman
     innov_norm = sqrtm(np.linalg.inv(S))@ytilde
     K = P @ H.T @ np.linalg.inv(S)
     xbar = xbar + K @ ytilde
