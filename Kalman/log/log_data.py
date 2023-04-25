@@ -33,11 +33,11 @@ def NMEA_data():
     alt = np.float64(trames[:, 9])
     alt_geoide = np.float64(trames[:, 11])
 
-    utc_vis = ['' for i in range(len(utc))]
-    lat_deg = ['' for i in range(len(lat))]
-    lat_dms = ['' for i in range(len(lat))]
-    lon_deg = ['' for i in range(len(lon))]
-    lon_dms = ['' for i in range(len(lon))]
+    utc_vis = ['' for _ in range(len(utc))]
+    lat_deg = ['' for _ in range(len(lat))]
+    lat_dms = ['' for _ in range(len(lat))]
+    lon_deg = ['' for _ in range(len(lon))]
+    lon_dms = ['' for _ in range(len(lon))]
 
     for i in range(len(utc)):
         utc_vis[i] += utc[i][0:2] + 'h' + utc[i][2:4] + 'm' + utc[i][4:6] + '.' + utc[i][7:] + 's'
@@ -164,7 +164,7 @@ def proj2(lon_rad, lat_rad): #radian --> m
     t = prj.Transformer.from_crs(rep_geo, proj, always_xy=True)
     print(rep_geo.datum, proj.datum)
     E, N = t.transform(lon_rad, lat_rad)
-    return(E, N)
+    return(np.array(E), np.array(N))
 
 #Projecting the NMEA data
 def proj(lon_rad, lat_rad): #radian --> m
@@ -207,6 +207,9 @@ if __name__ == "__main__":
     DE, DN, DU = Delta()
     head, pit = calc_att(DE, DN, DU)
     lon_m, lat_m = proj2(lon, lat)
-    lon_m, lat_m = offset(lon_m, lat_m)
-    np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_without_nmea.npz"), lat=lat, lon=lon, alt=alt, lat_m=lat_m, lon_m=lon_m, heading=heading, pitch=pitch, calc_head=head, calc_pitch=pit, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, DE=DE, DN=DN, DU=DU)
+    print(np.mean(lon_m))
+    lon_ref, lat_ref = proj2(0.036023633030, 0.853455632381)
+    lon_m, lat_m = lon_m - lon_ref, lat_m - lat_ref
+    print(np.mean(lon_m))
+    np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_without_nmea.npz"), lat_ref=lat_ref, lon_ref=lon_ref, alt=alt, lat_m=lat_m, lon_m=lon_m, heading=heading, pitch=pitch, calc_head=head, calc_pitch=pit, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, DE=DE, DN=DN, DU=DU)
     print("----- Saving the qrunch (without NMEA) data -----\n")
