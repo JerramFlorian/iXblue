@@ -11,7 +11,7 @@ file_path = os.path.dirname(os.path.abspath(__file__)) + "\log"
 gnss = np.load(file_path + "\gnss_data_qrunch_without_nmea.npz")
 allan = np.load(file_path + "\deviation_allan.npz")
 
-lat, lon, cap = gnss["lat_m"], gnss["lon_m"], gnss["heading"]
+lat, lon, cap = gnss["lat_m"], gnss["lon_m"], gnss["heading"] #ici lat et lon sont absolues (pos = pos - pos_ref)
 lat_ref, lon_ref = gnss["lat_ref"], gnss["lon_ref"]
 cap = cap - np.mean(cap)
 print(lat, lon, cap*180/np.pi)
@@ -80,6 +80,12 @@ def legende(ax):
     ax.set_xlabel('x')
     ax.set_ylabel('y')
 
+def RMS(values):
+    squared_sum = np.sum(x**2 for x in values)
+    mean_squared = squared_sum/len(values)
+    rms = np.sqrt(mean_squared)
+    return rms
+
 
 #Initializing some values
 dt = 0.1
@@ -99,10 +105,9 @@ R = np.diag([dev_lon**2, dev_lat**2, dev_cap**2]) #matrice de covariance de brui
 u = np.array([[0], [0], [0]])
 
 T = []
-deno = 1
+deno = 10
 fr = 1
 N = int(np.min([len(lat)//deno, len(lon)//deno, len(cap)//deno]))
-# N = 20000
 PMatrix = np.zeros((N, P.shape[0]*P.shape[1]))
 Innov = np.zeros((N//fr, Y.shape[0]*Y.shape[1]))
 Innov_norm = np.zeros((N//fr, Y.shape[0]*Y.shape[1]))
@@ -146,6 +151,12 @@ plt.tight_layout()
 # plt.plot(bc)
 # plt.title("Bruit corrélé")
 
+bb = np.array([np.random.normal(scale=dev_lon, size=N//fr), np.random.normal(scale=dev_lat, size=N//fr)]).T
+rw = np.array([np.cumsum(np.random.normal(scale=dev_lon, size=N//fr)), np.cumsum(np.random.normal(scale=dev_lat, size=N//fr))]).T
+biais_bb = np.zeros((N//fr, 3))
+biais_rw = np.zeros((N//fr, 3))
+
+
 #Looping our algorithm
 for i in tqdm(np.arange(0, N, dt)):
     # Real state
@@ -172,6 +183,8 @@ for i in tqdm(np.arange(0, N, dt)):
         Y = np.array([[0, 0, 0]]).T + bruit[int(i//fr), :].reshape(3,1)
         Xhat, P, ytilde, innov_norm = Kalman(Xhat, P, u, Y, Q, R, Fk, Gk, Hk)
         pos[int(i//fr), 0], pos[int(i//fr), 1], pos[int(i//fr), 2] = x1, x2, x3
+        biais_bb[int(i//fr), 0], biais_bb[int(i//fr), 1] = biais_bb[int(i//fr)-1, 0] + bb[int(i//fr), 0], biais_bb[int(i//fr)-1, 1] + bb[int(i//fr), 1]
+        biais_rw[int(i//fr), 0], biais_rw[int(i//fr), 1] = biais_rw[int(i//fr)-1, 0] + rw[int(i//fr), 0], biais_rw[int(i//fr)-1, 1] + rw[int(i//fr), 1]
         for j in range(Y.shape[0]):
             Innov[i, j] = ytilde[j, 0]
             Innov_norm[i, j] = innov_norm[j, 0]
@@ -202,8 +215,18 @@ for i in tqdm(np.arange(0, N, dt)):
 if __name__ == "__main__":
     Xhat[2, 0] = Xhat[2, 0]*180/np.pi
     print(Xhat)
-    print("Biais sur la 1ère mesure de longitude: {:.3f}".format(pos[-1, 0]))
-    print("Biais sur la 1ère mesure de latitude : {:.3f}".format(pos[-1, 1]))
+    print("\nErreur absolue minimale sur la longitutde : {:.3f}".format(np.min(np.abs(lon))))
+    print("Erreur absolue minimale sur la latitude : {:.3f}".format(np.min(np.abs(lat))))
+    print("\nErreur absolue maximale sur la longitutde: {:.3f}".format(np.max(np.abs(lon))))
+    print("Erreur absolue maximale sur la latitude : {:.3f}".format(np.max(np.abs(lat))))
+    print("\nRMS de l'erreur absolue sur la longitude : {:.3f}".format(RMS(lon))) # RMS fort ==> grande fluctuation 
+    print("RMS de l'erreur absolue sur la latitude : {:.3f}".format(RMS(lat)))
+    print("\nBiais sur la 1ère mesure de longitude: {:.3f}".format(pos[0, 0]))
+    print("Biais sur la 1ère mesure de latitude : {:.3f}".format(pos[0, 1]))
+    print("\nPrécision moyenne sur la longitude : {:.3f}".format(np.mean(lon)))
+    print("Précision moyenne sur la latitude : {:.3f}".format(np.mean(lat)))
+    print("\nEcart-type moyen sur la longitude : {:.3f}".format(np.std(lon))) # distribution gaussienne donc RMS=STD ici
+    print("Ecart-type moyen sur la latitude : {:.3f}".format(np.std(lat)))
     # T = [int(i/dt+0.5)/3600 for i in T]
 
 
@@ -219,6 +242,15 @@ if __name__ == "__main__":
     #         ax.set_xlabel("Time [s]")
     #         ax.set_ylabel("Error [m/rad]")
     #         ax.set_title(f"P_{i},{j}")
+
+    plt.figure()
+    plt.plot(biais_bb[:, 0], label="longitude bb")
+    plt.plot(biais_bb[:, 1], label="latitude bb")
+    plt.plot(biais_rw[:, 0], label="longitude rw")
+    plt.plot(biais_rw[:, 1], label="latitude rw")
+    plt.xlabel("Time [s]")
+    plt.title("Evaluation des biais de position")
+    plt.legend()
 
     # plt.close("all") 
     T_allan, dev_allan, _ = qrunch.allan_deviation(bruit[:, 1])
@@ -279,7 +311,7 @@ if __name__ == "__main__":
             ax.set_ylabel(f"{titles[i]}")
     # plt.show()
 
-    fig, axs = plt.subplots(3, 1, figsize=(8, 8))  # Créer une figure avec 2 subplots verticaux
+    fig, axs = plt.subplots(3, 1, figsize=(8, 8))  # Créer une figure avec 3 subplots verticaux
     fig.suptitle("Evolution de la position avec le bruit")
     axs[0].plot(pos[:, 0], label="longitude")
     axs[0].plot(bruit[:, 0], label="bruit longitude")
@@ -291,8 +323,8 @@ if __name__ == "__main__":
     axs[1].set_xlabel("Time [s]")
     axs[1].set_ylabel("Lat [m]")
     axs[1].legend()
-    axs[2].plot(pos[:, 2], label="latitude")
-    axs[2].plot(bruit[:, 2], label="bruit latitude")
+    axs[2].plot(pos[:, 2], label="cap")
+    axs[2].plot(bruit[:, 2], label="bruit cap")
     axs[2].set_xlabel("Time [s]")
     axs[2].set_ylabel("Cap [rad]")
     axs[2].legend()
