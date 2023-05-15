@@ -172,12 +172,6 @@ def proj(lon_rad, lat_rad): #radian --> m
     x, y = prj.transform(prj.Proj("+proj=longlat +datum=WGS84"), lambert93, lon_rad, lat_rad)
     return(x, y)
 
-#Offset
-def offset(lon_m, lat_m): #m --> m
-    m_lon, m_lat = np.mean(lon_m), np.mean(lat_m)
-    lon_m, lat_m = lon_m - m_lon, lat_m - m_lat
-    return(lon_m, lat_m)
-
 
 if __name__ == "__main__":
     #Manual method
@@ -207,9 +201,10 @@ if __name__ == "__main__":
     DE, DN, DU = Delta()
     head, pit = calc_att(DE, DN, DU)
     lon_m, lat_m = proj2(lon, lat)
-    print(np.mean(lon_m))
     lon_ref, lat_ref = proj2(0.036023633030, 0.853455632381)
     lon_m, lat_m = lon_m - lon_ref, lat_m - lat_ref
-    print(np.mean(lon_m))
+    print(np.shape(lon_m))
+    lat_m=lat_m[:18000] ; lon_m=lon_m[:18000] ; heading=heading[:18000] ; DE=DE[:18000] ; DN=DN[:18000] ; DU=DU[:18000]
+    print(np.shape(lon_m))
     np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_without_nmea.npz"), lat_ref=lat_ref, lon_ref=lon_ref, alt=alt, lat_m=lat_m, lon_m=lon_m, heading=heading, pitch=pitch, calc_head=head, calc_pitch=pit, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, DE=DE, DN=DN, DU=DU)
     print("----- Saving the qrunch (without NMEA) data -----\n")

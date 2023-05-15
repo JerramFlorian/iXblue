@@ -15,7 +15,8 @@ lat_ref, lon_ref = gnss["lat_ref"], gnss["lon_ref"]
 cap = cap - np.mean(cap)
 print(lat, lon, cap*180/np.pi)
 cov_latlat, cov_lonlon, cov_latlon, cov_hh, cov_pp, cov_hp = gnss["cov_latlat"], gnss["cov_lonlon"], gnss["cov_latlon"], gnss["cov_hh"], gnss["cov_pp"], gnss["cov_hp"]
-dev_lat, dev_lon, dev_cap = np.sqrt(3)*10**(-2.931), np.sqrt(3)*10**(-2.568), 0.0005 #sigma bruit
+dev_lat, dev_lon, dev_cap = np.sqrt(3)*10**(-2.931), np.sqrt(3)*10**(-2.568), 5*10**-4 #sigma bruit
+
 
 
 #Defining some useful functions
@@ -30,10 +31,10 @@ def f(X, u, bruit_biais):
                       [x5 + dt*(u2*np.cos(x3) + u3*np.sin(x3))],
                       [x6 + dt*b1],
                       [x7 + dt*b2],
-                      [x8 + dt*b3]]) 
+                      [x8 + dt*b3]])
     return x_dot
 
-def Kalman(xbar, P, u, y, Q, R, F, G, H):
+def Kalman(xbar, P, u, y, Q, R, F, G, H, bruit_biais):
     # Prédiction
     xbar = f(xbar, u, bruit_biais)
     P = F @ P @ F.T + G @ Q @ G.T
@@ -97,12 +98,12 @@ save_data = True
 if display_bot:
     ax = init_figure(lon[0]-8, lon[0]+8, lat[0]-8, lat[0]+8)
 
-P = np.diag([0.01, 0.01, 0.01, 0.01, 0.01, 0.1, 0.1, 0.1])
+P = np.diag([0.001**2, 0.001**2, 0.001**2, 0.001**2, 0.001**2, 0.01**2, 0.01**2, 0.01**2])
 Xhat = np.array([[0, 0, 0, 0, 0, 0, 0, 0]]).T
 Y = np.array([[0, 0, 0]]).T
 
 sigm_equation = 1*10**(-4)
-Q = np.diag([sigm_equation, sigm_equation, sigm_equation]) #matrice de covariance de bruit pour l'état du système
+Q = np.diag([sigm_equation**2, sigm_equation**2, sigm_equation**2, sigm_equation**2, sigm_equation**2, sigm_equation**2]) #matrice de covariance de bruit pour l'état du système
 R = np.diag([dev_lon**2, dev_lat**2, dev_cap**2]) #matrice de covariance de bruit pour les mesure, bruit blanc sinon on estime les bruits non blancs en rajoutant un état dans le Kalman
 
 u = np.array([[0], [0], [0]])
@@ -162,25 +163,25 @@ for i in tqdm(np.arange(0, N, dt)):
                                     [0, 0, -u2*np.sin(x3) + u3*np.cos(x3), 0, 0, 0, 0, 0],
                                     [0, 0, 0, 0, 0, 0, 0, 0],
                                     [0, 0, 0, 0, 0, 0, 0, 0],
-                                    [0, 0, 0, 0, 0, 0, 0, 0]])
+                                    [0, 0, 0, 0, 0, 0, 0, rajouter terme]])
 
-    Gk = dt * np.array([[0, 0, 0],
-                        [0, 0, 0],
-                        [1, 0, 0],
-                        [0, np.sin(x3), -np.cos(x3)],
-                        [0, np.cos(x3), np.sin(x3)],
-                        [0, 0, 0],
-                        [0, 0, 0],
-                        [0, 0, 0]])
+    Gk = dt * np.array([[0, 0, 0, 0, 0, 0],
+                        [0, 0, 0, 0, 0, 0],
+                        [1, 0, 0, 0, 0, 0],
+                        [0, np.sin(x3), -np.cos(x3), 0, 0, 0],
+                        [0, np.cos(x3), np.sin(x3), 0, 0, 0],
+                        [0, 0, 0, 0, 0, 0],
+                        [0, 0, 0, 0, 0, 0],
+                        [0, 0, 0, 0, 0, 0]])
 
-    bruit_biais = np.array([[bruit_blanc_biais[int(i//fr), 0], bruit_blanc_biais[int(i//fr), 1], bruit_correle_biais[int(i//fr)]]]).T
     if i % fr == 0:
         T.append(i//dt)
         i = int(i//fr)
-        Y = np.array([[0, 0, 0]]).T + bruit[int(i//fr), :].reshape(3,1)
-        pos[int(i//fr), 0], pos[int(i//fr), 1], pos[int(i//fr), 2] = x1, x2, x3
-        biais[int(i//fr), 0], biais[int(i//fr), 1], biais[int(i//fr), 2] = x6, x7, x8
-        Xhat, P, ytilde, innov_norm = Kalman(Xhat, P, u, Y, Q, R, Fk, Gk, Hk)
+        Y = np.array([[0, 0, 0]]).T + bruit[i, :].reshape(3,1)
+        pos[i, 0], pos[i, 1], pos[i, 2] = x1, x2, x3
+        biais[i, 0], biais[i, 1], biais[i, 2] = x6, x7, x8
+        bruit_biais = np.array([[bruit_blanc_biais[int(i//fr), 0], bruit_blanc_biais[int(i//fr), 1], bruit_correle_biais[int(i//fr)]]]).T
+        Xhat, P, ytilde, innov_norm = Kalman(Xhat, P, u, Y, Q, R, Fk, Gk, Hk, bruit_biais)
         for j in range(Y.shape[0]):
             Innov[i, j] = ytilde[j, 0]
             Innov_norm[i, j] = innov_norm[j, 0]
@@ -322,7 +323,7 @@ if __name__ == "__main__":
     plt.tight_layout()
 
     fig, axs = plt.subplots(3, 1, figsize=(8, 8))
-    fig.suptitle("Biais sur l'attitude'")
+    fig.suptitle("Biais sur l'attitude")
     axs[0].plot(biais[:, 0], label="biais longitude")
     axs[0].set_xlabel("Time [s]")
     axs[0].set_ylabel("Lon [m]")

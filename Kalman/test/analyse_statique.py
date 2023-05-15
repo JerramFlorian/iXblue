@@ -22,17 +22,16 @@ lg = lambda x : np.log10(x)
 
 
 #Storing the data
-N = 6
+N = 8
 T, data, std = [[] for i in range(N)], [[] for i in range(N)], [[] for i in range(N)]
-# T[0], data[0], std[0] = qrunch.allan_deviation(lat)
-# T[1], data[1], std[1] = qrunch.allan_deviation(lon)
 T[0], data[0], std[0] = qrunch.allan_deviation(lat)
 T[1], data[1], std[1] = qrunch.allan_deviation(lon)
 T[2], data[2], std[2] = qrunch.allan_deviation(DN)
 T[3], data[3], std[3] = qrunch.allan_deviation(DE)
 T[4], data[4], std[4] = qrunch.allan_deviation(cap)
 T[5], data[5], std[5] = qrunch.allan_deviation(innov_norm[:, 0])
-# T[5], data[5], std[5] = qrunch.allan_deviation(innov[:, 0])
+T[6], data[6], std[6] = qrunch.allan_deviation(innov_norm[:, 1])
+T[7], data[7], std[7] = qrunch.allan_deviation(innov_norm[:, 2])
 
 # T = [t/3600 for t in T]
 
@@ -40,7 +39,7 @@ T[5], data[5], std[5] = qrunch.allan_deviation(innov_norm[:, 0])
 #Ploting the Allan deviation
 fig, axs = plt.subplots(2, int(round(N/2+0.1)))
 fig.suptitle(f"Déviation d'Allan")
-titles = ["Delta North [m]", "Delta Est [m]", "heading [rad]", "Lat [m]", "Lon [m]", "innov_norm [m]"]
+titles = ["Lat [m]", "Lon [m]", "Delta North [m]", "Delta Est [m]", "heading [rad]", "innov_norm Lon [m]", "innov_norm Lat [m]", "innov_norm Cap [rad]"]
 for i in range(2):
     for j in range(int(round(N/2+0.1))):
         ax = axs[i,j]
@@ -57,12 +56,10 @@ for i in range(2):
 #Ploting the Allan deviation
 fig, axs = plt.subplots(2, int(round(N/2+0.1)))
 fig.suptitle(f"Déviation d'Allan")
-titles = ["Lat [m]", "Lon [m]", "Delta North [m]", "Delta Est [m]", "heading [rad]", "innov_norm [m]"]
-t0_rw, tf_rw = [0, 0, 4, 4, 4, 0], [np.where(T[0]==1033)[0][0], np.where(T[0]==1033)[0][0], np.where(T[0]==210)[0][0], np.where(T[0]==210)[0][0], np.where(T[0]==210)[0][0], np.where(T[0]==1033)[0][0]]
-# t0_rw, tf_rw = [0, 0, 4, 4, 4, 4], [np.where(T[0]==1081)[0][0], np.where(T[0]==1081)[0][0], np.where(T[0]==208)[0][0], np.where(T[0]==208)[0][0], np.where(T[0]==208)[0][0], np.where(T[0]==208)[0][0]]
-B = ["rw", "rw", "bc", "bc", "bc", "rw"]
-sig = [np.sqrt(3)*10**(-2.931), np.sqrt(3)*10**(-2.568), 0.004, 0.0015, 0.0005, np.sqrt(3)*10**(-0.2223)]
-# sig = [np.sqrt(3)*10**(-8.9), np.sqrt(3)*10**(-8.9), 0.07, 0.045, 0.025, 0.025]
+titles = ["Lat [m]", "Lon [m]", "Delta North [m]", "Delta Est [m]", "heading [rad]", "innov_norm Lon [m]", "innov_norm Lat [m]", "innov_norm Cap [rad]"]
+t0_rw, tf_rw = [0, 0, 4, 4, 4, 0, 0, 0], [np.where(T[0]==1033)[0][0], np.where(T[0]==1033)[0][0], np.where(T[0]==210)[0][0], np.where(T[0]==210)[0][0], np.where(T[0]==210)[0][0], np.where(T[0]==1033)[0][0], np.where(T[0]==1033)[0][0], np.where(T[0]==1033)[0][0]]
+B = ["rw", "rw", "bc", "bc", "bc", "bb", "bb", "bb"]
+sig = [np.sqrt(3)*10**(-2.931), np.sqrt(3)*10**(-2.568), 0.004, 0.0015, 0.0005, 1, 1, 1]
 for i in range(2):
     for j in range(int(round(N/2+0.1))):
         ax = axs[i,j]
@@ -88,8 +85,39 @@ for i in range(2):
         ax.set_xlabel("Time [s]")
         ax.set_ylabel(f"{titles[index]}")
         ax.legend()
-plt.show()
+# plt.show()
 
+
+#Ploting the Allan deviation
+fig, axs = plt.subplots(3)
+fig.suptitle(f"Déviation d'Allan")
+titles = ["innov_norm Lon [m]", "innov_norm Lat [m]", "innov_norm Cap [rad]"]
+t0_rw, tf_rw = [0, 0, 0], [np.where(T[0]==1033)[0][0], np.where(T[0]==1033)[0][0], np.where(T[0]==1033)[0][0]]
+B = ["bb", "bb", "bb"]
+sig = [1, 1, 1]
+for i in range(3):
+    ax = axs[i]
+    a, b = np.polyfit(lg(T[i][t0_rw[i]:tf_rw[i]]), lg(data[i-3][t0_rw[i]:tf_rw[i]]), 1)
+    ax.loglog(T[i], data[i-3], label=f"allan : {'%.4g'%a}t + {'%.4g'%b}")
+    y_rw = sig[i]/np.sqrt(3)*T[i]
+    y_bb = sig[i]/T[i]
+    if B[i] == "rw":
+        a_th, b_th = np.polyfit(lg(T[i]), lg(y_rw), 1)
+        ax.loglog(T[i], y_rw, label=f"{B[i]} : {'%.4g'%a_th}t + {'%.4g'%b_th}")    
+    if B[i] == "bb":
+        a_th, b_th = np.polyfit(lg(T[i]), lg(y_bb), 1)
+        ax.loglog(T[i], y_bb, label=f"{B[i]} : {'%.4g'%a_th}t + {'%.4g'%b_th}")        
+    if B[i] == "bc":
+        tau = [[0.025, 200, 4000], [0.1, 75, 200, 2500, 3500], [0.025, 200, 4000]]
+        cpt = 1
+        for t in tau[i-2]:
+            exec(f"y2_bc_{i-1}_{cpt} = 2*t*sig[i]**2/T[i]*(1-t/(2*T[i])*(3-4*np.exp(-T[i]/t)+np.exp(-2*T[i]/t)))")
+            cpt += 1
+        ax.loglog(T[i], np.sqrt(sum(eval(f'y2_bc_{i-1}_{i}') for i in range(1, len(tau[i-2])+1))), label=f"{B[i]} : {tau[i-2]}")
+    ax.set_xlabel("Time [s]")
+    ax.set_ylabel(f"{titles[i]}")
+    ax.legend()
+plt.show()
 
 
 if __name__ == "__main__":
