@@ -203,8 +203,5 @@ if __name__ == "__main__":
     lon_m, lat_m = proj2(lon, lat)
     lon_ref, lat_ref = proj2(0.036023633030, 0.853455632381)
     lon_m, lat_m = lon_m - lon_ref, lat_m - lat_ref
-    print(np.shape(lon_m))
-    lat_m=lat_m[:18000] ; lon_m=lon_m[:18000] ; heading=heading[:18000] ; DE=DE[:18000] ; DN=DN[:18000] ; DU=DU[:18000]
-    print(np.shape(lon_m))
     np.savez(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gnss_data_qrunch_without_nmea.npz"), lat_ref=lat_ref, lon_ref=lon_ref, alt=alt, lat_m=lat_m, lon_m=lon_m, heading=heading, pitch=pitch, calc_head=head, calc_pitch=pit, cov_latlat=cov_latlat, cov_lonlon=cov_lonlon, cov_latlon=cov_latlon, cov_hh=cov_hh, cov_pp=cov_pp, cov_hp=cov_hp, DE=DE, DN=DN, DU=DU)
     print("----- Saving the qrunch (without NMEA) data -----\n")

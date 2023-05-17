@@ -33,8 +33,6 @@ T[5], data[5], std[5] = qrunch.allan_deviation(innov_norm[:, 0])
 T[6], data[6], std[6] = qrunch.allan_deviation(innov_norm[:, 1])
 T[7], data[7], std[7] = qrunch.allan_deviation(innov_norm[:, 2])
 
-# T = [t/3600 for t in T]
-
 
 #Ploting the Allan deviation
 fig, axs = plt.subplots(2, int(round(N/2+0.1)))
@@ -45,9 +43,9 @@ for i in range(2):
         ax = axs[i,j]
         quotient, remainder = divmod(j, int(N/2))
         index = quotient * int(N/2) + remainder + (N//2 * i)
-        ax.loglog(T[index], data[index], label="allan")
-        ax.loglog(T[index], std[index], label="écart-type")
-        ax.set_xlabel("Time [s]")
+        ax.loglog(T[index]/60, data[index], label="allan")
+        ax.loglog(T[index]/60, std[index], label="écart-type")
+        ax.set_xlabel("Time [min]")
         ax.set_ylabel(f"{titles[index]}")
         ax.legend()
 # plt.show()
@@ -57,32 +55,31 @@ for i in range(2):
 fig, axs = plt.subplots(2, int(round(N/2+0.1)))
 fig.suptitle(f"Déviation d'Allan")
 titles = ["Lat [m]", "Lon [m]", "Delta North [m]", "Delta Est [m]", "heading [rad]", "innov_norm Lon [m]", "innov_norm Lat [m]", "innov_norm Cap [rad]"]
-t0_rw, tf_rw = [0, 0, 4, 4, 4, 0, 0, 0], [np.where(T[0]==1033)[0][0], np.where(T[0]==1033)[0][0], np.where(T[0]==210)[0][0], np.where(T[0]==210)[0][0], np.where(T[0]==210)[0][0], np.where(T[0]==1033)[0][0], np.where(T[0]==1033)[0][0], np.where(T[0]==1033)[0][0]]
 B = ["rw", "rw", "bc", "bc", "bc", "bb", "bb", "bb"]
-sig = [np.sqrt(3)*10**(-2.931), np.sqrt(3)*10**(-2.568), 0.004, 0.0015, 0.0005, 1, 1, 1]
+sig = [0.002, 0.0045, 0.004, 0.0015, 0.0005, 1, 1, 1]
 for i in range(2):
     for j in range(int(round(N/2+0.1))):
         ax = axs[i,j]
         quotient, remainder = divmod(j, int(N/2))
         index = quotient * int(N/2) + remainder + (N//2 * i)
-        a, b = np.polyfit(lg(T[index][t0_rw[index]:tf_rw[index]]), lg(data[index][t0_rw[index]:tf_rw[index]]), 1)
-        ax.loglog(T[index], data[index], label=f"allan : {'%.4g'%a}t + {'%.4g'%b}")
+        a, b = np.polyfit(lg(T[index]), lg(data[index]), 1)
+        ax.loglog(T[index]/60, data[index], label=f"variance d'Allan")
         y_rw = sig[index]/np.sqrt(3)*np.sqrt(T[index])
         y_bb = sig[index]/np.sqrt(T[index])
         if B[index] == "rw":
             a_th, b_th = np.polyfit(lg(T[index]), lg(y_rw), 1)
-            ax.loglog(T[index], y_rw, label=f"{B[index]} : {'%.4g'%a_th}t + {'%.4g'%b_th}")    
+            ax.loglog(T[index]/60, y_rw, label=f"{B[index]} : {'%.4g'%a_th}t + {'%.4g'%b_th}")    
         if B[index] == "bb":
             a_th, b_th = np.polyfit(lg(T[index]), lg(y_bb), 1)
-            ax.loglog(T[index], y_bb, label=f"{B[index]} : {'%.4g'%a_th}t + {'%.4g'%b_th}")        
+            ax.loglog(T[index]/60, y_bb, label=f"{B[index]} : {'%.4g'%a_th}t + {'%.4g'%b_th}")        
         if B[index] == "bc":
             tau = [[0.025, 200, 4000], [0.1, 75, 200, 2500, 3500], [0.025, 200, 4000]]
             cpt = 1
             for t in tau[index-2]:
                 exec(f"y2_bc_{index-1}_{cpt} = 2*t*sig[index]**2/T[index]*(1-t/(2*T[index])*(3-4*np.exp(-T[index]/t)+np.exp(-2*T[index]/t)))")
                 cpt += 1
-            ax.loglog(T[index], np.sqrt(sum(eval(f'y2_bc_{index-1}_{i}') for i in range(1, len(tau[index-2])+1))), label=f"{B[index]} : {tau[index-2]}")
-        ax.set_xlabel("Time [s]")
+            ax.loglog(T[index]/60, np.sqrt(sum(eval(f'y2_bc_{index-1}_{i}') for i in range(1, len(tau[index-2])+1))), label=f"{B[index]} : {tau[index-2]}")
+        ax.set_xlabel("Time [min]")
         ax.set_ylabel(f"{titles[index]}")
         ax.legend()
 # plt.show()
@@ -92,29 +89,29 @@ for i in range(2):
 fig, axs = plt.subplots(3)
 fig.suptitle(f"Déviation d'Allan")
 titles = ["innov_norm Lon [m]", "innov_norm Lat [m]", "innov_norm Cap [rad]"]
-t0_rw, tf_rw = [0, 0, 0], [np.where(T[0]==1033)[0][0], np.where(T[0]==1033)[0][0], np.where(T[0]==1033)[0][0]]
 B = ["bb", "bb", "bb"]
 sig = [1, 1, 1]
 for i in range(3):
     ax = axs[i]
-    a, b = np.polyfit(lg(T[i][t0_rw[i]:tf_rw[i]]), lg(data[i-3][t0_rw[i]:tf_rw[i]]), 1)
-    ax.loglog(T[i], data[i-3], label=f"allan : {'%.4g'%a}t + {'%.4g'%b}")
+    i-=3
+    a, b = np.polyfit(lg(T[i]), lg(data[i]), 1)
+    ax.loglog(T[i]/60, data[i], label=f"variance d'Allan : {'%.4g'%a}t + {'%.4g'%b}")
     y_rw = sig[i]/np.sqrt(3)*T[i]
-    y_bb = sig[i]/T[i]
+    y_bb = sig[i]/np.sqrt(T[i])
     if B[i] == "rw":
         a_th, b_th = np.polyfit(lg(T[i]), lg(y_rw), 1)
-        ax.loglog(T[i], y_rw, label=f"{B[i]} : {'%.4g'%a_th}t + {'%.4g'%b_th}")    
+        ax.loglog(T[i]/60, y_rw, label=f"{B[i]} : {'%.4g'%a_th}t + {'%.4g'%b_th}")    
     if B[i] == "bb":
         a_th, b_th = np.polyfit(lg(T[i]), lg(y_bb), 1)
-        ax.loglog(T[i], y_bb, label=f"{B[i]} : {'%.4g'%a_th}t + {'%.4g'%b_th}")        
+        ax.loglog(T[i]/60, y_bb, label=f"{B[i]} : {'%.4g'%a_th}t + {'%.4g'%b_th}")        
     if B[i] == "bc":
         tau = [[0.025, 200, 4000], [0.1, 75, 200, 2500, 3500], [0.025, 200, 4000]]
         cpt = 1
         for t in tau[i-2]:
-            exec(f"y2_bc_{i-1}_{cpt} = 2*t*sig[i]**2/T[i]*(1-t/(2*T[i])*(3-4*np.exp(-T[i]/t)+np.exp(-2*T[i]/t)))")
+            exec(f"y2_bc_{i+3}_{cpt} = 2*t*sig[i]**2/T[i]*(1-t/(2*T[i])*(3-4*np.exp(-T[i]/t)+np.exp(-2*T[i]/t)))")
             cpt += 1
-        ax.loglog(T[i], np.sqrt(sum(eval(f'y2_bc_{i-1}_{i}') for i in range(1, len(tau[i-2])+1))), label=f"{B[i]} : {tau[i-2]}")
-    ax.set_xlabel("Time [s]")
+        ax.loglog(T[j]/60, np.sqrt(sum(eval(f'y2_bc_{j+3}_{j}') for j in range(1, len(tau[i-2])+1))), label=f"{B[j]} : {tau[j-2]}")
+    ax.set_xlabel("Time [min]")
     ax.set_ylabel(f"{titles[i]}")
     ax.legend()
 plt.show()
