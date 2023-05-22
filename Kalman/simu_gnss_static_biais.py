@@ -53,10 +53,10 @@ def Kalman(xbar, P, u, y, Q, R, F, G, H, bruit_biais):
     return xbar, P, ytilde, innov_norm
 
 def se1():
-    return(np.exp(-dt/tau_dt[0]) + np.exp(-dt/tau_dt[1]) + np.exp(-dt/tau_dt[2]))
+    return(0*np.exp(-dt/tau_dt[0]) + np.exp(-dt/tau_dt[1]) + 0*np.exp(-dt/tau_dt[2]))
 
 def se2():
-    return(np.sqrt(1-np.exp(-2*dt/tau_dt[0])) + np.sqrt(1-np.exp(-2*dt/tau_dt[1])) + np.sqrt(1-np.exp(-2*dt/tau_dt[2])))
+    return(0*np.sqrt(1-np.exp(-2*dt/tau_dt[0])) + np.sqrt(1-np.exp(-2*dt/tau_dt[1])) + 0*np.sqrt(1-np.exp(-2*dt/tau_dt[2])))
 
 def RMS(values):
     squared_sum = np.sum(np.fromiter((x**2 for x in values), np.float64))
@@ -69,7 +69,7 @@ def RMS(values):
 dt = 0.1
 save_data = True
 
-p0, p1 = 10**-7, 10**-2
+p0, p1 = 10**-6, 10**-2
 P = np.diag([p0**2, p0**2, p0**2, p0**2, p0**2, p1**2, p1**2, p1**2])
 Xhat = np.array([[0, 0, 0, 0, 0, 0, 0, 0]]).T
 Y = np.array([[0, 0, 0]]).T
@@ -98,9 +98,9 @@ bruit[:, 1] = np.cumsum(np.random.normal(scale=dev_lat, size=N))
 
 BC = np.zeros((N, 3))
 BB = np.array([np.random.normal(scale=np.sqrt(dev_cap), size=N) for _ in range(3)]).T
-tau = [0.025, 200, 4000]
-tau_dt = np.array(tau)*dt
-for i in range(1, N):
+tau = [200, 4000]
+tau_dt = np.array(tau)#*dt
+for i in range(5, N):
     BC[i, 0] = BC[i-1, 0]*np.exp(-dt/tau_dt[0]) + np.sqrt(dev_cap)*np.sqrt(1-np.exp(-2*dt/tau_dt[0]))*BB[i, 0]
     BC[i, 1] = BC[i-1, 1]*np.exp(-dt/tau_dt[1]) + np.sqrt(dev_cap)*np.sqrt(1-np.exp(-2*dt/tau_dt[1]))*BB[i, 1]
     BC[i, 2] = BC[i-1, 2]*np.exp(-dt/tau_dt[2]) + np.sqrt(dev_cap)*np.sqrt(1-np.exp(-2*dt/tau_dt[2]))*BB[i, 2]
@@ -129,7 +129,7 @@ for i in tqdm(np.arange(0, N, dt)):
                                     [0, 0, -u2*np.sin(x3) + u3*np.cos(x3), 0, 0, 0, 0, 0],
                                     [0, 0, 0, 0, 0, 0, 0, 0],
                                     [0, 0, 0, 0, 0, 0, 0, 0],
-                                    [0, 0, 0, 0, 0, 0, 0, -1/dt + se1()]]) 
+                                    [0, 0, 0, 0, 0, 0, 0, (se1()-1)/dt]]) 
 
     Gk = dt * np.array([[0, 0, 0, 0, 0, 0],
                         [0, 0, 0, 0, 0, 0],
@@ -138,7 +138,7 @@ for i in tqdm(np.arange(0, N, dt)):
                         [0, np.cos(x3), np.sin(x3), 0, 0, 0],
                         [0, 0, 0, 1, 0, 0],
                         [0, 0, 0, 0, 1, 0],
-                        [0, 0, 0, 0, 0, np.sqrt(dev_cap)*se2()]])
+                        [0, 0, 0, 0, 0, np.sqrt(dev_cap)*se2()/dt]])
 
     if i % 1 == 0: # fréquence=1
         i = int(i)

@@ -55,8 +55,9 @@ for i in range(2):
 fig, axs = plt.subplots(2, int(round(N/2+0.1)))
 fig.suptitle(f"Déviation d'Allan")
 titles = ["Lat [m]", "Lon [m]", "Delta North [m]", "Delta Est [m]", "heading [rad]", "innov_norm Lon [m]", "innov_norm Lat [m]", "innov_norm Cap [rad]"]
-B = ["rw", "rw", "bc", "bc", "bc", "bb", "bb", "bb"]
+B = ["rw", "rw", "bb+bc", "bb+bc", "bb+bc", "bb", "bb", "bb"]
 sig = [0.002, 0.0045, 0.004, 0.0015, 0.0005, 1, 1, 1]
+sig_bb = [0.001, 0.001, 0.000125]
 for i in range(2):
     for j in range(int(round(N/2+0.1))):
         ax = axs[i,j]
@@ -73,12 +74,21 @@ for i in range(2):
             a_th, b_th = np.polyfit(lg(T[index]), lg(y_bb), 1)
             ax.loglog(T[index]/60, y_bb, label=f"{B[index]} : {'%.4g'%a_th}t + {'%.4g'%b_th}")        
         if B[index] == "bc":
-            tau = [[0.025, 200, 4000], [0.1, 75, 200, 2500, 3500], [0.025, 200, 4000]]
+            tau = [0.1, 75, 200, 2500, 3500]
             cpt = 1
-            for t in tau[index-2]:
+            for t in tau:
                 exec(f"y2_bc_{index-1}_{cpt} = 2*t*sig[index]**2/T[index]*(1-t/(2*T[index])*(3-4*np.exp(-T[index]/t)+np.exp(-2*T[index]/t)))")
                 cpt += 1
-            ax.loglog(T[index]/60, np.sqrt(sum(eval(f'y2_bc_{index-1}_{i}') for i in range(1, len(tau[index-2])+1))), label=f"{B[index]} : {tau[index-2]}")
+            ax.loglog(T[index]/60, np.sqrt(sum(eval(f'y2_bc_{index-1}_{i}') for i in range(1, len(tau)+1))), label=f"{B[index]} : {tau}") 
+        if B[index] == "bb+bc":
+            ind_bb = 3
+            y_bb = sig_bb[index-2]/np.sqrt(T[index][:ind_bb])
+            tau = [[100, 2000], [0.1, 75, 200, 2500, 3500], [150]]
+            cpt = 1
+            for t in tau[index-2]:
+                exec(f"y2_bc_{index-1}_{cpt} = 2*t*sig[index]**2/T[index][ind_bb:]*(1-t/(2*T[index][ind_bb:])*(3-4*np.exp(-T[index][ind_bb:]/t)+np.exp(-2*T[index][ind_bb:]/t)))")
+                cpt += 1
+            ax.loglog(T[index]/60, np.hstack((y_bb, np.sqrt(sum(eval(f'y2_bc_{index-1}_{i}') for i in range(1, len(tau[index-2])+1))))), label=f"{B[index]} : {tau[index-2]}")
         ax.set_xlabel("Time [min]")
         ax.set_ylabel(f"{titles[index]}")
         ax.legend()
